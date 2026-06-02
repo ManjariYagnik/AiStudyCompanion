@@ -203,6 +203,32 @@ def summary(req: SummaryRequest):
     return payload
 
 
+@app.post("/api/summary/stream")
+async def summary_stream(req: SummaryRequest):
+    doc = _require_doc(req.documentId)
+
+    from src.summarizer import summarize_document_stream
+
+    async def event_source():
+        try:
+            async for event in summarize_document_stream(req.documentId):
+                if event.get("type") == "result":
+                    event["summary"]["source"] = doc["name"]
+                yield f"data: {json.dumps(event)}\n\n"
+        except RuntimeError as exc:  # missing API key / provider unreachable
+            yield f"data: {json.dumps({'type': 'error', 'detail': str(exc)})}\n\n"
+        except ValueError as exc:
+            yield f"data: {json.dumps({'type': 'error', 'detail': str(exc)})}\n\n"
+        except Exception as exc:  # noqa: BLE001
+            yield f"data: {json.dumps({'type': 'error', 'detail': f'Summary failed: {exc}'})}\n\n"
+
+    return StreamingResponse(
+        event_source(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @app.post("/api/quiz")
 def quiz(req: QuizRequest):
     _require_doc(req.documentId)
