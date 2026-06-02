@@ -137,6 +137,69 @@ export async function generateQuiz(
   return res.json()
 }
 
+export interface StreamHandlers {
+  onSources?: (citations: Citation[]) => void
+  onToken?: (text: string) => void
+  onDone?: () => void
+  onError?: (detail: string) => void
+}
+
+// Streams an answer over SSE: a `sources` event (citations) arrives first,
+// then `token` events as the model generates, then `done`.
+export async function askQuestionStream(
+  question: string,
+  documentId: string | undefined,
+  handlers: StreamHandlers,
+): Promise<void> {
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}/api/ask/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, documentId: documentId ?? null }),
+    })
+  } catch {
+    handlers.onError?.('Could not reach the server.')
+    return
+  }
+
+  if (!res.ok || !res.body) {
+    handlers.onError?.(await parseError(res))
+    return
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  const handle = (raw: string) => {
+    const line = raw.split('\n').find((l) => l.startsWith('data:'))
+    if (!line) return
+    let evt: any
+    try {
+      evt = JSON.parse(line.slice(5).trim())
+    } catch {
+      return
+    }
+    if (evt.type === 'sources') handlers.onSources?.(evt.citations ?? [])
+    else if (evt.type === 'token') handlers.onToken?.(evt.text ?? '')
+    else if (evt.type === 'done') handlers.onDone?.()
+    else if (evt.type === 'error') handlers.onError?.(evt.detail ?? 'Something went wrong')
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let idx: number
+    while ((idx = buffer.indexOf('\n\n')) >= 0) {
+      handle(buffer.slice(0, idx))
+      buffer = buffer.slice(idx + 2)
+    }
+  }
+  if (buffer.trim()) handle(buffer)
+}
+
 // "2 days ago" style formatting from an ISO timestamp.
 export function relativeTime(iso: string): string {
   const then = new Date(iso).getTime()

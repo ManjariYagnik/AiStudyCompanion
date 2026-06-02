@@ -50,7 +50,7 @@ cp .env.example .env
 ## Run
 
 ```bash
-.venv/bin/python -m uvicorn app:app --reload --port 8000
+.venv/bin/python -m uvicorn main:app --reload --port 8000
 ```
 
 The frontend (Next.js) calls `http://localhost:8000` by default. To point it
@@ -65,6 +65,7 @@ elsewhere, set `NEXT_PUBLIC_API_URL` in the Next app's `.env.local`.
 | POST   | `/api/documents`      | multipart `file`                  | `StudyDocument` |
 | DELETE | `/api/documents/{id}` | —                                 | `{ok}` |
 | POST   | `/api/ask`            | `{question, documentId?}`         | `{answer, citations[]}` |
+| POST   | `/api/ask/stream`     | `{question, documentId?}`         | SSE: `sources` event, then `token` events, then `done` |
 | POST   | `/api/summary`        | `{documentId}`                    | `{title, source, bulletPoints[], keyConcepts[], importantTakeaways[]}` |
 | POST   | `/api/quiz`           | `{documentId, difficulty, count}` | `{questions: [{question, options[4], correct, explanation}]}` |
 

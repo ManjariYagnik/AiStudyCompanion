@@ -9,10 +9,12 @@ Endpoints:
 """
 from __future__ import annotations
 
+import json
 import uuid
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from src import registry
@@ -144,6 +146,30 @@ def ask(req: AskRequest):
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Answering failed: {exc}")
+
+
+@app.post("/api/ask/stream")
+async def ask_stream(req: AskRequest):
+    question = req.question.strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="Question must not be empty.")
+
+    from src.qa_chain import answer_question_stream
+
+    async def event_source():
+        try:
+            async for event in answer_question_stream(question, doc_id=req.documentId):
+                yield f"data: {json.dumps(event)}\n\n"
+        except RuntimeError as exc:  # missing API key / provider unreachable
+            yield f"data: {json.dumps({'type': 'error', 'detail': str(exc)})}\n\n"
+        except Exception as exc:  # noqa: BLE001
+            yield f"data: {json.dumps({'type': 'error', 'detail': f'Answering failed: {exc}'})}\n\n"
+
+    return StreamingResponse(
+        event_source(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 def _require_doc(doc_id: str) -> dict:

@@ -6,7 +6,7 @@ from that context -> return the answer plus deduped citations.
 """
 from __future__ import annotations
 
-from typing import List, Optional, TypedDict
+from typing import AsyncIterator, List, Optional, TypedDict
 
 from .config import TOP_K
 from .llm import get_chat_llm
@@ -48,28 +48,8 @@ def _snippet(text: str, limit: int = 240) -> str:
     return text if len(text) <= limit else text[:limit].rstrip() + "..."
 
 
-def answer_question(question: str, doc_id: Optional[str] = None) -> Answer:
-    results = search(question, k=TOP_K, doc_id=doc_id)
-    docs = [doc for doc, _score in results]
-
-    if not docs:
-        return Answer(
-            answer="I couldn't find that in your documents. Try uploading "
-            "relevant material first.",
-            citations=[],
-        )
-
-    context = _format_context(docs)
-    llm = get_chat_llm()
-    response = llm.invoke(
-        [
-            ("system", SYSTEM_PROMPT),
-            ("human", f"Context:\n{context}\n\nQuestion: {question}"),
-        ]
-    )
-    answer_text = response.content if hasattr(response, "content") else str(response)
-
-    # Dedupe citations by (file, page), preserving retrieval order.
+def _build_citations(docs) -> List[Citation]:
+    """Dedupe citations by (file, page), preserving retrieval order."""
     seen = set()
     citations: List[Citation] = []
     for d in docs:
@@ -84,5 +64,56 @@ def answer_question(question: str, doc_id: Optional[str] = None) -> Answer:
                 snippet=_snippet(d.page_content),
             )
         )
+    return citations
 
-    return Answer(answer=answer_text.strip(), citations=citations)
+
+def _prompt(question: str, context: str):
+    return [
+        ("system", SYSTEM_PROMPT),
+        ("human", f"Context:\n{context}\n\nQuestion: {question}"),
+    ]
+
+
+_NO_MATCH = (
+    "I couldn't find that in your documents. Try uploading relevant material first."
+)
+
+
+def answer_question(question: str, doc_id: Optional[str] = None) -> Answer:
+    results = search(question, k=TOP_K, doc_id=doc_id)
+    docs = [doc for doc, _score in results]
+
+    if not docs:
+        return Answer(answer=_NO_MATCH, citations=[])
+
+    llm = get_chat_llm()
+    response = llm.invoke(_prompt(question, _format_context(docs)))
+    answer_text = response.content if hasattr(response, "content") else str(response)
+    return Answer(answer=answer_text.strip(), citations=_build_citations(docs))
+
+
+async def answer_question_stream(
+    question: str, doc_id: Optional[str] = None
+) -> AsyncIterator[dict]:
+    """Yield SSE-style events: a 'sources' event (citations, available right
+    after retrieval), then incremental 'token' events, then 'done'.
+
+    Retrieval is fast, so citations stream to the UI immediately while the
+    (slower) model generates the answer token by token.
+    """
+    results = search(question, k=TOP_K, doc_id=doc_id)
+    docs = [doc for doc, _score in results]
+
+    yield {"type": "sources", "citations": _build_citations(docs)}
+
+    if not docs:
+        yield {"type": "token", "text": _NO_MATCH}
+        yield {"type": "done"}
+        return
+
+    llm = get_chat_llm()
+    async for chunk in llm.astream(_prompt(question, _format_context(docs))):
+        text = getattr(chunk, "content", "") or ""
+        if text:
+            yield {"type": "token", "text": text}
+    yield {"type": "done"}
