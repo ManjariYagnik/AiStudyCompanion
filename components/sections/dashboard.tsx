@@ -101,10 +101,13 @@ export function Dashboard() {
   return (
     <div className="space-y-8">
       {/* Hero Section */}
-      <div className="space-y-4">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Study Companion</h1>
-          <p className="text-lg text-muted-foreground max-w-2xl">
+      <div className="space-y-4 animate-rise">
+        <div className="relative">
+          <span className="font-condiment text-neon text-2xl absolute -top-5 left-1 -rotate-6 select-none">
+            study smarter
+          </span>
+          <h1 className="font-display text-5xl lg:text-6xl text-white mb-1 pt-3">Study Companion</h1>
+          <p className="text-base text-white/55 max-w-2xl">
             Upload notes, summarize faster, and study smarter with AI-powered learning tools
           </p>
         </div>
@@ -117,7 +120,7 @@ export function Dashboard() {
           return (
             <Card
               key={index}
-              className="p-6 rounded-2xl border-0 bg-gradient-to-br from-card to-card/50 hover:shadow-lg transition-all duration-300"
+              className={`p-6 rounded-2xl glass glass-hover animate-rise delay-${index + 1}`}
             >
               <div className="flex items-start justify-between mb-4">
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center`}>
@@ -125,8 +128,8 @@ export function Dashboard() {
                 </div>
               </div>
               <div>
-                <p className="text-muted-foreground text-sm font-medium mb-1">{stat.label}</p>
-                <p className="text-3xl font-bold text-foreground">{stat.value}</p>
+                <p className="text-white/55 text-sm font-medium mb-1">{stat.label}</p>
+                <p className="text-3xl font-semibold text-white">{stat.value}</p>
               </div>
             </Card>
           )
@@ -136,52 +139,43 @@ export function Dashboard() {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Quick Actions */}
-        <Card className="p-8 rounded-2xl border-0 bg-gradient-to-br from-card to-card/50 lg:col-span-1">
-          <h2 className="text-lg font-bold text-foreground mb-6">Quick Actions</h2>
+        <Card className="p-8 rounded-2xl glass lg:col-span-1 animate-rise delay-2">
+          <h2 className="text-lg font-semibold text-white mb-6">Quick Actions</h2>
           <div className="space-y-3">
             <Link href="/documents">
-              <Button className="w-full justify-between group bg-primary hover:bg-primary/90 rounded-xl h-12">
-                <div className="flex items-center gap-3">
+              <Button className="w-full justify-between group bg-primary hover:bg-primary/90 text-[#010828] rounded-xl h-12 cursor-pointer">
+                <span className="flex items-center gap-3">
                   <Upload className="w-5 h-5" />
-                  <span>Upload Document</span>
-                </div>
+                  Upload Document
+                </span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
-            <Link href="/qa">
-              <Button variant="outline" className="w-full justify-between group rounded-xl h-12 border-border hover:bg-muted">
-                <div className="flex items-center gap-3">
-                  <MessageSquare className="w-5 h-5" />
-                  <span>Ask a Question</span>
-                </div>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </Link>
-            <Link href="/summary">
-              <Button variant="outline" className="w-full justify-between group rounded-xl h-12 border-border hover:bg-muted">
-                <div className="flex items-center gap-3">
-                  <FileText className="w-5 h-5" />
-                  <span>Get Summary</span>
-                </div>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </Link>
-            <Link href="/quiz">
-              <Button variant="outline" className="w-full justify-between group rounded-xl h-12 border-border hover:bg-muted">
-                <div className="flex items-center gap-3">
-                  <Brain className="w-5 h-5" />
-                  <span>Take Quiz</span>
-                </div>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </Link>
+            {[
+              { href: '/qa', icon: MessageSquare, label: 'Ask a Question' },
+              { href: '/summary', icon: FileText, label: 'Get Summary' },
+              { href: '/quiz', icon: Brain, label: 'Take Quiz' },
+            ].map(({ href, icon: Icon, label }) => (
+              <Link key={href} href={href}>
+                <Button
+                  variant="outline"
+                  className="w-full justify-between group rounded-xl h-12 border-white/12 bg-white/5 text-white hover:bg-white/10 hover:text-white cursor-pointer"
+                >
+                  <span className="flex items-center gap-3">
+                    <Icon className="w-5 h-5" />
+                    {label}
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-white/60 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </Link>
+            ))}
           </div>
         </Card>
 
         {/* Recent Documents */}
-        <Card className="p-8 rounded-2xl border-0 bg-gradient-to-br from-card to-card/50 lg:col-span-2">
+        <Card className="p-8 rounded-2xl glass lg:col-span-2 animate-rise delay-3">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-foreground">Recent Documents</h2>
+            <h2 className="text-lg font-semibold text-white">Recent Documents</h2>
             <Link href="/documents" className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               View All →
             </Link>
@@ -190,20 +184,18 @@ export function Dashboard() {
             {recentDocuments.map((doc) => (
               <div
                 key={doc.id}
-                className="flex items-center justify-between p-4 rounded-xl bg-secondary/10 hover:bg-secondary/20 transition-colors duration-200 group cursor-pointer"
+                className="flex items-center justify-between p-4 rounded-xl border border-white/8 bg-white/5 hover:bg-white/8 hover:border-white/15 transition-colors duration-200 group cursor-pointer"
               >
                 <div className="flex items-center gap-4 flex-1">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl liquid-glass flex items-center justify-center">
                     <FileText className="w-5 h-5 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-foreground group-hover:text-primary transition-colors">{doc.name}</p>
-                    <p className="text-xs text-muted-foreground">{doc.pages} pages • {doc.uploadDate}</p>
+                    <p className="font-medium text-white group-hover:text-primary transition-colors">{doc.name}</p>
+                    <p className="text-xs text-white/50">{doc.pages} pages • {doc.uploadDate}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  {getStatusBadge(doc.status)}
-                </div>
+                <div className="flex items-center gap-3">{getStatusBadge(doc.status)}</div>
               </div>
             ))}
           </div>

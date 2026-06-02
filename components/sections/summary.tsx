@@ -1,101 +1,139 @@
 'use client'
 
-import { useState } from 'react'
-import { FileText, Zap, BookOpen } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { FileText, Zap, BookOpen, AlertCircle, Loader2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import {
+  type DocumentSummary,
+  type StudyDocument,
+  listDocuments,
+  generateSummary,
+} from '@/lib/api'
 
 export function SummarySection() {
-  const [summary, setSummary] = useState({
-    title: 'Biology Chapter 5: Cell Structure and Function',
-    source: 'Biology Chapter 5.pdf',
-    bulletPoints: [
-      'Cells are the basic units of life and are the smallest units capable of independent life',
-      'Two main types of cells: prokaryotic (bacteria) and eukaryotic (animals, plants, fungi)',
-      'Cell membrane acts as a selective barrier, controlling what enters and exits the cell',
-      'Nucleus contains genetic material (DNA) and controls cell activities',
-      'Mitochondria produces ATP through cellular respiration for energy',
-      'Endoplasmic reticulum synthesizes proteins and lipids',
-      'Golgi apparatus packages and modifies proteins for transport',
-      'Lysosomes break down waste materials and cellular debris',
-    ],
-    keyConcepts: [
-      { term: 'Prokaryotic', definition: 'Cells without a membrane-bound nucleus; includes bacteria' },
-      { term: 'Eukaryotic', definition: 'Cells with a membrane-bound nucleus; includes animal and plant cells' },
-      { term: 'ATP', definition: 'Adenosine triphosphate; primary energy currency of the cell' },
-      { term: 'Photosynthesis', definition: 'Process by which plants convert light energy into chemical energy' },
-      { term: 'Osmosis', definition: 'Movement of water across a semipermeable membrane' },
-    ],
-    importantTakeaways: [
-      'Cell theory states all living organisms are made of cells',
-      'Surface-to-volume ratio affects cell size and function',
-      'Specialized organelles in eukaryotic cells perform specific functions',
-      'Transport mechanisms: diffusion, osmosis, active transport, and endocytosis',
-      'Cell division occurs through mitosis (body cells) or meiosis (sex cells)',
-    ],
-  })
+  const [documents, setDocuments] = useState<StudyDocument[]>([])
+  const [selectedId, setSelectedId] = useState<string>('')
+  const [summary, setSummary] = useState<DocumentSummary | null>(null)
+  const [loadingDocs, setLoadingDocs] = useState(true)
+  const [generating, setGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const [isGenerating, setIsGenerating] = useState(false)
+  const indexed = documents.filter((d) => d.status === 'indexed')
 
-  const handleGenerateSummary = () => {
-    setIsGenerating(true)
-    setTimeout(() => setIsGenerating(false), 2000)
+  useEffect(() => {
+    listDocuments()
+      .then((docs) => {
+        setDocuments(docs)
+        const firstIndexed = docs.find((d) => d.status === 'indexed')
+        if (firstIndexed) setSelectedId(firstIndexed.id)
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoadingDocs(false))
+  }, [])
+
+  const handleGenerate = async () => {
+    if (!selectedId) return
+    setError(null)
+    setGenerating(true)
+    setSummary(null)
+    try {
+      setSummary(await generateSummary(selectedId))
+    } catch (e: any) {
+      setError(e.message ?? 'Failed to generate summary')
+    } finally {
+      setGenerating(false)
+    }
   }
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-4xl font-bold text-foreground mb-2">Summary</h1>
-        <p className="text-lg text-muted-foreground">
+        <h1 className="font-display text-5xl text-white mb-1">Summary</h1>
+        <p className="text-base text-white/55">
           Get AI-powered summaries of your study materials
         </p>
       </div>
 
+      {error && (
+        <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
       {/* Action Section */}
-      <div className="flex gap-4">
-        <Button
-          onClick={handleGenerateSummary}
-          disabled={isGenerating}
-          className="bg-primary hover:bg-primary/90 rounded-xl h-11 px-6 gap-2"
-        >
-          {isGenerating ? (
-            <>
-              <div className="w-4 h-4 rounded-full border-2 border-current border-r-transparent animate-spin" />
-              Generating...
-            </>
-          ) : (
-            <>
-              <Zap className="w-4 h-4" />
-              Generate Summary
-            </>
-          )}
-        </Button>
-      </div>
+      {loadingDocs ? (
+        <div className="flex items-center text-white/55">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading documents…
+        </div>
+      ) : indexed.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center animate-rise">
+          <div className="w-20 h-20 rounded-2xl liquid-glass flex items-center justify-center mb-6">
+            <BookOpen className="w-9 h-9 text-white/70" />
+          </div>
+          <h3 className="font-display text-2xl text-white mb-2">No documents ready</h3>
+          <p className="text-white/55 max-w-sm">
+            Upload and index a document first to generate a summary.
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={selectedId}
+            onChange={(e) => setSelectedId(e.target.value)}
+            className="h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-white focus:outline-none focus:border-white/25 transition-colors cursor-pointer"
+          >
+            {indexed.map((doc) => (
+              <option key={doc.id} value={doc.id} className="bg-[#0d1320]">
+                {doc.name}
+              </option>
+            ))}
+          </select>
+          <Button
+            onClick={handleGenerate}
+            disabled={generating || !selectedId}
+            className="bg-primary hover:bg-primary/90 text-[#010828] rounded-xl h-11 px-6 font-medium cursor-pointer"
+          >
+            {generating ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="size-4 animate-spin" />
+                Generating…
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-2">
+                <Zap className="size-4" />
+                Generate Summary
+              </span>
+            )}
+          </Button>
+        </div>
+      )}
 
       {/* Summary Card */}
       {summary && (
         <div className="space-y-6">
           {/* Main Summary Card */}
-          <Card className="p-8 rounded-2xl border-0 bg-gradient-to-br from-card to-card/50">
+          <Card className="p-8 rounded-2xl glass animate-rise">
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-primary" />
+                <div className="w-8 h-8 rounded-lg liquid-glass flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-primary" />
                 </div>
-                <span className="text-sm text-muted-foreground font-medium">{summary.source}</span>
+                <span className="text-sm text-white/55 font-medium">{summary.source}</span>
               </div>
-              <h2 className="text-2xl font-bold text-foreground">{summary.title}</h2>
+              <h2 className="font-display text-3xl text-white">{summary.title}</h2>
             </div>
 
             {/* Bullet Points */}
             <div>
-              <h3 className="text-lg font-semibold text-foreground mb-4">Key Points</h3>
+              <h3 className="text-lg font-semibold text-white mb-4">Key Points</h3>
               <ul className="space-y-3">
                 {summary.bulletPoints.map((point, index) => (
                   <li key={index} className="flex gap-3">
                     <div className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0 mt-2" />
-                    <span className="text-foreground/90 leading-relaxed">{point}</span>
+                    <span className="text-white/80 leading-relaxed">{point}</span>
                   </li>
                 ))}
               </ul>
@@ -103,45 +141,37 @@ export function SummarySection() {
           </Card>
 
           {/* Concepts Grid */}
-          <div>
-            <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-              <BookOpen className="w-5 h-5" />
-              Key Concepts & Definitions
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {summary.keyConcepts.map((concept, index) => (
-                <Card key={index} className="p-4 rounded-xl border-0 bg-secondary/10 hover:bg-secondary/20 transition-colors">
-                  <h4 className="font-semibold text-foreground mb-2">{concept.term}</h4>
-                  <p className="text-sm text-muted-foreground">{concept.definition}</p>
-                </Card>
-              ))}
+          {summary.keyConcepts.length > 0 && (
+            <div className="animate-rise delay-1">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-primary" />
+                Key Concepts &amp; Definitions
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {summary.keyConcepts.map((concept, index) => (
+                  <Card key={index} className="p-4 rounded-xl glass glass-hover">
+                    <h4 className="font-semibold text-white mb-1">{concept.term}</h4>
+                    <p className="text-sm text-white/60 leading-relaxed">{concept.definition}</p>
+                  </Card>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Important Takeaways */}
-          <Card className="p-6 rounded-2xl border-0 bg-gradient-to-br from-secondary/20 to-secondary/5">
-            <h3 className="text-lg font-bold text-foreground mb-4">Important Takeaways</h3>
-            <ul className="space-y-2">
-              {summary.importantTakeaways.map((takeaway, index) => (
-                <li key={index} className="flex gap-3 items-start">
-                  <div className="w-1 h-1 rounded-full bg-accent mt-2.5 flex-shrink-0" />
-                  <span className="text-foreground/90">{takeaway}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {!summary && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-20 h-20 rounded-full bg-secondary/20 flex items-center justify-center mb-6">
-            <BookOpen className="w-10 h-10 text-muted-foreground" />
-          </div>
-          <h3 className="text-xl font-bold text-foreground mb-2">No summary yet</h3>
-          <p className="text-muted-foreground max-w-sm mb-6">Upload a document first to generate a summary</p>
-          <Button className="bg-primary hover:bg-primary/90 rounded-xl">Upload Document</Button>
+          {summary.importantTakeaways.length > 0 && (
+            <Card className="p-6 rounded-2xl glass animate-rise delay-2">
+              <h3 className="text-lg font-semibold text-white mb-4">Important Takeaways</h3>
+              <ul className="space-y-2.5">
+                {summary.importantTakeaways.map((takeaway, index) => (
+                  <li key={index} className="flex gap-3 items-start">
+                    <div className="w-1.5 h-1.5 rounded-full bg-secondary mt-2 flex-shrink-0" />
+                    <span className="text-white/80 leading-relaxed">{takeaway}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
         </div>
       )}
     </div>

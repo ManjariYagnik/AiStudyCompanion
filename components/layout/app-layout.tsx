@@ -4,7 +4,7 @@ import { FloatingActionButton } from './floating-action-button'
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen bg-background">
+    <div className="app-backdrop flex h-screen overflow-hidden">
       {/* Sidebar */}
       <Sidebar />
 
@@ -15,9 +15,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Content area */}
         <main className="flex-1 overflow-auto lg:mt-16 pt-16 lg:pt-0">
-          <div className="min-h-full p-4 lg:p-6">
-            {children}
-          </div>
+          <div className="min-h-full p-4 lg:p-6 xl:p-8">{children}</div>
         </main>
       </div>
 

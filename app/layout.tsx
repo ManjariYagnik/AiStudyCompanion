@@ -3,8 +3,10 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
+// Load and actually apply the fonts (previously computed but never attached,
+// which caused fallback fonts + layout shift during web-font swap).
+const geist = Geist({ subsets: ['latin'], variable: '--font-geist', display: 'swap' })
+const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono', display: 'swap' })
 
 export const metadata: Metadata = {
   title: 'Study Companion - Upload notes, summarize faster, and study smarter',
@@ -31,8 +33,10 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${geist.variable} ${geistMono.variable}`}>
       <body className="font-sans antialiased bg-background">
+        {/* Fixed filmic grain overlay (purely decorative) */}
+        <div className="texture-overlay" aria-hidden="true" />
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
