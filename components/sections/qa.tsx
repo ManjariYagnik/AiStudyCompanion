@@ -1,76 +1,63 @@
 'use client'
 
-import { useState } from 'react'
-import { Send, MessageCircle, Lightbulb, ArrowRight } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Send, MessageCircle, Lightbulb, ArrowRight, Loader2, FileText } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { type Citation, askQuestion } from '@/lib/api'
+
+interface Message {
+  id: string
+  type: 'question' | 'answer'
+  text: string
+  citations?: Citation[]
+}
 
 export function QASection() {
   const [question, setQuestion] = useState('')
-  const [messages, setMessages] = useState([
-    {
-      id: '1',
-      type: 'question',
-      text: 'What is the difference between prokaryotic and eukaryotic cells?',
-      timestamp: '2 minutes ago',
-    },
-    {
-      id: '2',
-      type: 'answer',
-      text: 'Prokaryotic cells lack a membrane-bound nucleus and organelles, while eukaryotic cells contain a nucleus and specialized organelles. Prokaryotes are simpler and smaller (bacteria), while eukaryotes are more complex (animals, plants, fungi). Eukaryotic cells are typically larger and compartmentalize their functions through organelles.',
-      source: { file: 'Biology Chapter 5.pdf', page: 12 },
-      timestamp: '2 minutes ago',
-    },
-    {
-      id: '3',
-      type: 'question',
-      text: 'How does mitochondria produce energy?',
-      timestamp: 'Just now',
-    },
-    {
-      id: '4',
-      type: 'answer',
-      text: 'Mitochondria produce energy through cellular respiration. Glucose is broken down in a series of chemical reactions, releasing energy that is used to create ATP (adenosine triphosphate), the cell\'s energy currency. This process occurs in three main stages: glycolysis, the citric acid cycle, and the electron transport chain. Each stage releases energy that is captured in ATP molecules.',
-      source: { file: 'Biology Chapter 5.pdf', page: 15 },
-      timestamp: 'Just now',
-    },
-  ])
+  const [messages, setMessages] = useState<Message[]>([])
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const suggestedQuestions = [
-    'What is photosynthesis?',
-    'How does cell division work?',
-    'What are organelles?',
-    'Explain the cell membrane',
-    'What is ATP?',
+    'Summarize the key concepts',
+    'What are the main definitions?',
+    'Explain this in simple terms',
+    'What should I focus on for an exam?',
+    'List the important formulas',
   ]
 
-  const handleSendQuestion = () => {
-    if (question.trim()) {
-      const newMessage = {
-        id: String(messages.length + 1),
-        type: 'question',
-        text: question,
-        timestamp: 'Just now',
-      }
-      setMessages([...messages, newMessage])
-      setQuestion('')
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+  }, [messages, pending])
 
-      // Simulate AI response
-      setTimeout(() => {
-        const response = {
-          id: String(messages.length + 2),
+  const send = async (text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed || pending) return
+    setError(null)
+
+    const userMsg: Message = { id: crypto.randomUUID(), type: 'question', text: trimmed }
+    setMessages((prev) => [...prev, userMsg])
+    setQuestion('')
+    setPending(true)
+
+    try {
+      const res = await askQuestion(trimmed)
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
           type: 'answer',
-          text: 'This is a sample AI response. In a real application, this would be dynamically generated based on your uploaded documents and the question asked.',
-          source: { file: 'Biology Chapter 5.pdf', page: 8 },
-          timestamp: 'Just now',
-        }
-        setMessages((prev) => [...prev, response])
-      }, 1500)
+          text: res.answer,
+          citations: res.citations,
+        },
+      ])
+    } catch (e: any) {
+      setError(e.message ?? 'Something went wrong')
+    } finally {
+      setPending(false)
     }
-  }
-
-  const handleSuggestedQuestion = (q: string) => {
-    setQuestion(q)
   }
 
   return (
@@ -87,36 +74,67 @@ export function QASection() {
         {/* Chat Area */}
         <div className="lg:col-span-3 flex flex-col h-[600px]">
           {/* Messages */}
-          <Card className="flex-1 p-6 rounded-2xl border-0 bg-card/50 overflow-y-auto mb-4 space-y-4">
-            {messages.length === 0 ? (
+          <Card
+            ref={scrollRef}
+            className="flex-1 p-6 rounded-2xl border-0 bg-card/50 overflow-y-auto mb-4 space-y-4"
+          >
+            {messages.length === 0 && !pending ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <MessageCircle className="w-12 h-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold text-foreground mb-2">Start a conversation</h3>
-                <p className="text-muted-foreground text-sm">Ask a question about your study materials</p>
+                <p className="text-muted-foreground text-sm">
+                  Ask a question about your uploaded study materials
+                </p>
               </div>
             ) : (
-              messages.map((msg) => (
-                <div key={msg.id} className={`flex ${msg.type === 'question' ? 'justify-end' : 'justify-start'}`}>
+              <>
+                {messages.map((msg) => (
                   <div
-                    className={`max-w-xs lg:max-w-md ${
-                      msg.type === 'question'
-                        ? 'bg-primary text-primary-foreground rounded-2xl rounded-tr-lg p-4'
-                        : 'bg-secondary/20 text-foreground rounded-2xl rounded-tl-lg p-4'
-                    }`}
+                    key={msg.id}
+                    className={`flex ${msg.type === 'question' ? 'justify-end' : 'justify-start'}`}
                   >
-                    <p className="text-sm">{msg.text}</p>
-                    {msg.type === 'answer' && msg.source && (
-                      <div className="mt-3 pt-3 border-t border-current border-opacity-20 text-xs opacity-75">
-                        <p>Source: {msg.source.file}</p>
-                        <p>Page {msg.source.page}</p>
-                      </div>
-                    )}
-                    <p className="text-xs opacity-60 mt-2">{msg.timestamp}</p>
+                    <div
+                      className={`max-w-xs lg:max-w-md ${
+                        msg.type === 'question'
+                          ? 'bg-primary text-primary-foreground rounded-2xl rounded-tr-lg p-4'
+                          : 'bg-secondary/20 text-foreground rounded-2xl rounded-tl-lg p-4'
+                      }`}
+                    >
+                      <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                      {msg.type === 'answer' && msg.citations && msg.citations.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-current/20 space-y-2">
+                          <p className="text-xs font-medium opacity-75">Sources</p>
+                          {msg.citations.map((c, i) => (
+                            <div key={i} className="text-xs opacity-75">
+                              <div className="flex items-center gap-1.5 font-medium">
+                                <FileText className="h-3 w-3 flex-shrink-0" />
+                                <span>
+                                  {c.file} · p.{c.page}
+                                </span>
+                              </div>
+                              <p className="mt-0.5 italic opacity-80">“{c.snippet}”</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+                {pending && (
+                  <div className="flex justify-start">
+                    <div className="bg-secondary/20 text-foreground rounded-2xl rounded-tl-lg p-4 flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Searching your notes…</span>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </Card>
+
+          {error && (
+            <p className="mb-2 text-sm text-destructive">{error}</p>
+          )}
 
           {/* Input */}
           <Card className="p-4 rounded-xl border-0 bg-card/50">
@@ -125,12 +143,14 @@ export function QASection() {
                 type="text"
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendQuestion()}
+                onKeyDown={(e) => e.key === 'Enter' && send(question)}
                 placeholder="Ask a question..."
-                className="flex-1 bg-input border border-border rounded-lg px-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-smooth"
+                disabled={pending}
+                className="flex-1 bg-input border border-border rounded-lg px-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-smooth disabled:opacity-60"
               />
               <Button
-                onClick={handleSendQuestion}
+                onClick={() => send(question)}
+                disabled={pending || !question.trim()}
                 className="bg-primary hover:bg-primary/90 rounded-lg px-4 gap-2"
               >
                 <Send className="w-4 h-4" />
@@ -150,8 +170,9 @@ export function QASection() {
               {suggestedQuestions.map((q, index) => (
                 <button
                   key={index}
-                  onClick={() => handleSuggestedQuestion(q)}
-                  className="w-full text-left p-3 rounded-lg bg-secondary/10 hover:bg-secondary/20 transition-colors group text-sm text-foreground/80 hover:text-foreground"
+                  onClick={() => send(q)}
+                  disabled={pending}
+                  className="w-full text-left p-3 rounded-lg bg-secondary/10 hover:bg-secondary/20 transition-colors group text-sm text-foreground/80 hover:text-foreground disabled:opacity-50"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <span>{q}</span>
