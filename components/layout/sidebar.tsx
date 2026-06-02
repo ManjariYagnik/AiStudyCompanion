@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils'
 const navigation = [
   {
     name: 'Dashboard',
-    href: '/',
+    href: '/dashboard',
     icon: BarChart3,
   },
   {
@@ -57,7 +57,8 @@ export function Sidebar() {
       {/* Mobile menu button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed top-4 left-4 z-40 lg:hidden p-2 rounded-lg bg-sidebar-primary text-sidebar-primary-foreground hover:opacity-90 transition-smooth"
+        className="fixed top-4 left-4 z-40 lg:hidden p-2.5 rounded-xl liquid-glass text-white cursor-pointer transition-colors hover:bg-white/10"
+        aria-label="Toggle navigation"
       >
         {isOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
@@ -65,7 +66,7 @@ export function Sidebar() {
       {/* Overlay for mobile */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}
@@ -73,20 +74,26 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 h-screen w-64 bg-sidebar border-r border-sidebar-border transition-all duration-300 z-40 pt-6 px-4 flex flex-col',
-          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          'fixed left-0 top-0 h-screen w-64 z-40 pt-6 px-3 flex flex-col transition-transform duration-300',
+          'bg-[#080b14]/80 backdrop-blur-xl border-r border-white/8',
+          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
       >
         {/* Logo */}
-        <div className="mb-8 px-2">
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl text-sidebar-foreground">
-            <Brain className="w-6 h-6 text-sidebar-primary" />
-            <span>Study Companion</span>
+        <div className="mb-8 px-3">
+          <Link
+            href="/dashboard"
+            className="group flex items-center gap-2.5 text-white transition-opacity hover:opacity-90"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl liquid-glass">
+              <Brain className="w-5 h-5 text-primary" />
+            </span>
+            <span className="font-display text-2xl leading-none">Study Companion</span>
           </Link>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-2">
+        <nav className="flex-1 space-y-1">
           {navigation.map((item) => {
             const isActive = pathname === item.href
             const Icon = item.icon
@@ -95,14 +102,18 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 onClick={() => setIsOpen(false)}
+                aria-current={isActive ? 'page' : undefined}
                 className={cn(
-                  'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200',
+                  'group relative flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors duration-200',
                   isActive
-                    ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                    : 'text-sidebar-foreground hover:bg-sidebar-accent/20 text-opacity-70'
+                    ? 'liquid-glass text-white'
+                    : 'text-white/60 hover:text-white hover:bg-white/5',
                 )}
               >
-                <Icon className="w-5 h-5" />
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
+                )}
+                <Icon className={cn('w-5 h-5 transition-colors', isActive ? 'text-primary' : 'text-white/50 group-hover:text-white/80')} />
                 {item.name}
               </Link>
             )
@@ -110,10 +121,12 @@ export function Sidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-sidebar-border pt-4 pb-6">
-          <div className="px-4 py-3 rounded-lg bg-gradient-to-br from-sidebar-primary/10 to-sidebar-accent/10">
-            <p className="text-xs text-sidebar-foreground/60 mb-2">Pro Tip</p>
-            <p className="text-xs text-sidebar-foreground/80">Upload PDF, DOCX, or TXT files to get started</p>
+        <div className="pt-4 pb-6">
+          <div className="liquid-glass rounded-xl px-4 py-3">
+            <p className="text-xs text-white/50 mb-1">Pro tip</p>
+            <p className="text-xs text-white/75 leading-relaxed">
+              Upload PDF, DOCX, or TXT files to start summarizing and asking questions.
+            </p>
           </div>
         </div>
       </aside>

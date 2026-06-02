@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from src import registry
 from src.chunker import chunk_pages
-from src.config import ALLOWED_ORIGINS, OPENAI_API_KEY, UPLOADS_DIR
+from src.config import ALLOWED_ORIGINS, CHAT_MODEL, LLM_PROVIDER, UPLOADS_DIR, XAI_API_KEY
 from src.loader import SUPPORTED_EXTENSIONS, load_document
 from src.utils import human_size
 
@@ -36,9 +36,25 @@ class AskRequest(BaseModel):
     documentId: str | None = None
 
 
+class SummaryRequest(BaseModel):
+    documentId: str
+
+
+class QuizRequest(BaseModel):
+    documentId: str
+    difficulty: str = "medium"
+    count: int = 5
+
+
 @app.get("/api/health")
 def health():
-    return {"ok": True, "openaiKeyConfigured": bool(OPENAI_API_KEY)}
+    return {
+        "ok": True,
+        "provider": LLM_PROVIDER,
+        "model": CHAT_MODEL,
+        # Only relevant when provider=xai; local Ollama needs no key.
+        "xaiKeyConfigured": bool(XAI_API_KEY),
+    }
 
 
 @app.get("/api/documents")
@@ -128,3 +144,52 @@ def ask(req: AskRequest):
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Answering failed: {exc}")
+
+
+def _require_doc(doc_id: str) -> dict:
+    doc = registry.get(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if doc.get("status") != "indexed":
+        raise HTTPException(
+            status_code=400, detail="Document is not indexed yet. Try again shortly."
+        )
+    return doc
+
+
+@app.post("/api/summary")
+def summary(req: SummaryRequest):
+    doc = _require_doc(req.documentId)
+
+    from src.summarizer import summarize_document
+
+    try:
+        result = summarize_document(req.documentId)
+    except RuntimeError as exc:  # missing API key
+        raise HTTPException(status_code=503, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Summary failed: {exc}")
+
+    payload = result.model_dump()
+    payload["source"] = doc["name"]
+    return payload
+
+
+@app.post("/api/quiz")
+def quiz(req: QuizRequest):
+    _require_doc(req.documentId)
+
+    from src.quiz_generator import generate_quiz
+
+    try:
+        result = generate_quiz(req.documentId, difficulty=req.difficulty, count=req.count)
+    except RuntimeError as exc:  # missing API key
+        raise HTTPException(status_code=503, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Quiz generation failed: {exc}")
+
+    return result.model_dump()

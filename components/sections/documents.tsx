@@ -87,9 +87,9 @@ export function DocumentsSection() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-4xl font-bold text-foreground mb-2">Upload Documents</h1>
-        <p className="text-lg text-muted-foreground">
-          Upload PDF, DOCX, or TXT files to get started with summaries and Q&A
+        <h1 className="font-display text-5xl text-white mb-1">Upload Documents</h1>
+        <p className="text-base text-white/55">
+          Upload PDF, DOCX, or TXT files to get started with summaries and Q&amp;A
         </p>
       </div>
 
@@ -117,31 +117,31 @@ export function DocumentsSection() {
         onDragOver={handleDrag}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
-        className={`relative cursor-pointer p-12 rounded-2xl border-2 border-dashed transition-all duration-300 ${
+        className={`group relative cursor-pointer p-12 rounded-2xl border border-dashed transition-colors duration-200 animate-rise ${
           dragActive
-            ? 'border-primary bg-primary/10 shadow-lg shadow-primary/20'
-            : 'border-border bg-card/50 hover:border-primary/50'
+            ? 'border-primary/70 bg-primary/10'
+            : 'border-white/15 bg-white/[0.03] hover:border-white/30 hover:bg-white/5'
         }`}
       >
         <div className="flex flex-col items-center justify-center text-center">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center mb-4">
+          <div className="w-16 h-16 rounded-2xl liquid-glass flex items-center justify-center mb-4">
             {uploading ? (
-              <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              <Loader2 className="w-7 h-7 text-primary animate-spin" />
             ) : (
-              <Upload className="w-8 h-8 text-primary" />
+              <Upload className="w-7 h-7 text-primary" />
             )}
           </div>
-          <h2 className="text-2xl font-bold text-foreground mb-2">
+          <h2 className="text-xl font-semibold text-white mb-2">
             {uploading ? 'Indexing your document…' : 'Drop files here or click to upload'}
           </h2>
-          <p className="text-muted-foreground mb-6">Supports PDF, DOCX, TXT files up to 50MB</p>
+          <p className="text-white/55 mb-6 text-sm">Supports PDF, DOCX, TXT files up to 50MB</p>
           <Button
             disabled={uploading}
             onClick={(e) => {
               e.stopPropagation()
               inputRef.current?.click()
             }}
-            className="bg-primary hover:bg-primary/90 rounded-xl h-11 px-8"
+            className="bg-primary hover:bg-primary/90 text-[#010828] rounded-xl h-11 px-8 font-medium cursor-pointer"
           >
             Choose Files
           </Button>
@@ -150,34 +150,34 @@ export function DocumentsSection() {
 
       {/* File List */}
       {loading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
+        <div className="flex items-center justify-center py-12 text-white/55">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           Loading documents…
         </div>
       ) : files.length > 0 ? (
         <div>
-          <h2 className="text-xl font-bold text-foreground mb-4">Uploaded Documents</h2>
+          <h2 className="text-lg font-semibold text-white mb-4">Uploaded Documents</h2>
           <div className="space-y-3">
             {files.map((file) => (
               <Card
                 key={file.id}
-                className="p-4 rounded-xl border-0 bg-card/50 hover:bg-card/70 transition-all duration-200 group"
+                className="p-4 rounded-xl glass glass-hover group animate-rise"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center flex-shrink-0">
-                    <FileText className="w-6 h-6 text-primary" />
+                  <div className="w-12 h-12 rounded-xl liquid-glass flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-5 h-5 text-primary" />
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium text-foreground truncate">{file.name}</h3>
+                      <h3 className="font-medium text-white truncate">{file.name}</h3>
                       <span
                         className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(file.status)}`}
                       >
                         {file.status.charAt(0).toUpperCase() + file.status.slice(1)}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs text-white/50">
                       <span>{file.size}</span>
                       <span>•</span>
                       <span>{relativeTime(file.createdAt)}</span>
@@ -199,8 +199,9 @@ export function DocumentsSection() {
                   <Button
                     variant="ghost"
                     size="icon"
+                    aria-label={`Delete ${file.name}`}
                     onClick={() => handleDelete(file.id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-destructive/20 hover:text-destructive"
+                    className="text-white/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-destructive/20 hover:text-destructive cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -211,12 +212,12 @@ export function DocumentsSection() {
         </div>
       ) : (
         /* Empty State */
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="w-20 h-20 rounded-full bg-secondary/20 flex items-center justify-center mb-6">
-            <FileText className="w-10 h-10 text-muted-foreground" />
+        <div className="flex flex-col items-center justify-center py-12 text-center animate-rise">
+          <div className="w-20 h-20 rounded-2xl liquid-glass flex items-center justify-center mb-6">
+            <FileText className="w-9 h-9 text-white/70" />
           </div>
-          <h3 className="text-xl font-bold text-foreground mb-2">No documents yet</h3>
-          <p className="text-muted-foreground max-w-sm">
+          <h3 className="font-display text-2xl text-white mb-2">No documents yet</h3>
+          <p className="text-white/55 max-w-sm">
             Upload your first study material to get started
           </p>
         </div>

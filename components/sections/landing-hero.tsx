@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { Globe, ArrowRight, Instagram, Twitter } from 'lucide-react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { Globe, ArrowRight, Instagram, Twitter, Brain } from 'lucide-react'
 
 const VIDEO_SRC =
   'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260328_115001_bcdaa3b4-03de-47e7-ad63-ae3e392c32d4.mp4'
@@ -11,6 +13,7 @@ const FADE_MS = 500
 const FADE_OUT_LEAD = 0.55
 
 export function LandingHero() {
+  const router = useRouter()
   const videoRef = useRef<HTMLVideoElement>(null)
   const rafRef = useRef<number | null>(null)
   // Guards against re-triggering the fade-out from repeated timeupdate events.
@@ -92,7 +95,7 @@ export function LandingHero() {
   }, [])
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-black">
+    <div className="relative min-h-screen overflow-hidden bg-[#010828]">
       {/* Full-screen background video, shifted down so the lower frame shows. */}
       <video
         ref={videoRef}
@@ -113,25 +116,27 @@ export function LandingHero() {
           <div className="mx-auto flex max-w-5xl items-center justify-between rounded-full px-6 py-3">
             <div className="flex items-center gap-8">
               <div className="flex items-center gap-2">
-                <Globe size={24} className="text-white" />
-                <span className="text-lg font-semibold text-white">Asme</span>
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl liquid-glass">
+                  <Brain size={18} className="text-neon" />
+                </span>
+                <span className="font-display text-xl tracking-wide text-white">Study Companion</span>
               </div>
               <div className="hidden items-center gap-8 md:flex">
                 <a
                   href="#features"
-                  className="text-sm font-medium text-white/80 transition-colors hover:text-white"
+                  className="text-sm font-medium text-white/80 transition-colors hover:text-neon"
                 >
                   Features
                 </a>
                 <a
                   href="#pricing"
-                  className="text-sm font-medium text-white/80 transition-colors hover:text-white"
+                  className="text-sm font-medium text-white/80 transition-colors hover:text-neon"
                 >
                   Pricing
                 </a>
                 <a
                   href="#about"
-                  className="text-sm font-medium text-white/80 transition-colors hover:text-white"
+                  className="text-sm font-medium text-white/80 transition-colors hover:text-neon"
                 >
                   About
                 </a>
@@ -139,27 +144,37 @@ export function LandingHero() {
             </div>
 
             <div className="flex items-center gap-4">
-              <button className="text-sm font-medium text-white">Sign Up</button>
-              <button className="liquid-glass rounded-full px-6 py-2 text-sm font-medium text-white">
+              <Link href="/dashboard" className="text-sm font-medium text-white">
+                Sign Up
+              </Link>
+              <Link
+                href="/dashboard"
+                className="liquid-glass rounded-full px-6 py-2 text-sm font-medium text-white"
+              >
                 Login
-              </button>
+              </Link>
             </div>
           </div>
         </nav>
 
         {/* Hero content */}
         <main className="relative z-10 flex flex-1 -translate-y-[20%] flex-col items-center justify-center px-6 py-12 text-center">
-          <h1
-            style={{ fontFamily: "'Instrument Serif', serif" }}
-            className="mb-8 whitespace-nowrap text-5xl tracking-tight text-white md:text-6xl lg:text-7xl"
-          >
-            Built for the curious
-          </h1>
+          <div className="relative mb-8">
+            <span className="font-condiment absolute -top-7 right-2 rotate-[-8deg] text-3xl text-neon mix-blend-screen select-none md:right-6 md:text-4xl">
+              study smarter
+            </span>
+            <h1 className="font-display text-5xl text-white md:text-6xl lg:text-7xl">
+              Built for the curious
+            </h1>
+          </div>
 
           <div className="w-full max-w-xl space-y-4">
             <form
               className="liquid-glass flex items-center gap-3 rounded-full py-2 pl-6 pr-2"
-              onSubmit={(e) => e.preventDefault()}
+              onSubmit={(e) => {
+                e.preventDefault()
+                router.push('/dashboard')
+              }}
             >
               <input
                 type="email"
@@ -169,7 +184,7 @@ export function LandingHero() {
               <button
                 type="submit"
                 aria-label="Submit email"
-                className="flex items-center justify-center rounded-full bg-white p-3 text-black"
+                className="flex items-center justify-center rounded-full bg-neon p-3 text-[#010828] transition-transform hover:scale-105"
               >
                 <ArrowRight size={20} />
               </button>

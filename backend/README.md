@@ -7,7 +7,13 @@ Upload file → Extract text → Chunk → Embed → Store in Chroma
             → Retrieve relevant chunks → Send to LLM → Grounded answer + citations
 ```
 
-**Stack:** FastAPI · LangChain · OpenAI (`gpt-4o-mini` + `text-embedding-3-small`) · ChromaDB (persistent, on disk).
+**Stack:** FastAPI · LangChain · **Grok / xAI** (`grok-4.3`, OpenAI-compatible) for
+generation · **local HuggingFace embeddings** (`BAAI/bge-small-en-v1.5`, no key) ·
+ChromaDB (persistent, on disk).
+
+> xAI has no embeddings endpoint, so embeddings run on-device via
+> sentence-transformers. Indexing/upload therefore needs **no API key**; only
+> generation (ask/summary/quiz) uses your `XAI_API_KEY`.
 
 ## Project structure
 
@@ -38,7 +44,7 @@ cd backend
 .venv/bin/python -m pip install -r requirements.txt
 
 cp .env.example .env
-# edit .env and set OPENAI_API_KEY=sk-...
+# edit .env and set XAI_API_KEY=xai-...   (from https://console.x.ai)
 ```
 
 ## Run
@@ -54,11 +60,13 @@ elsewhere, set `NEXT_PUBLIC_API_URL` in the Next app's `.env.local`.
 
 | Method | Path                  | Body                              | Returns |
 |--------|-----------------------|-----------------------------------|---------|
-| GET    | `/api/health`         | —                                 | `{ok, openaiKeyConfigured}` |
+| GET    | `/api/health`         | —                                 | `{ok, xaiKeyConfigured}` |
 | GET    | `/api/documents`      | —                                 | `StudyDocument[]` |
 | POST   | `/api/documents`      | multipart `file`                  | `StudyDocument` |
 | DELETE | `/api/documents/{id}` | —                                 | `{ok}` |
 | POST   | `/api/ask`            | `{question, documentId?}`         | `{answer, citations[]}` |
+| POST   | `/api/summary`        | `{documentId}`                    | `{title, source, bulletPoints[], keyConcepts[], importantTakeaways[]}` |
+| POST   | `/api/quiz`           | `{documentId, difficulty, count}` | `{questions: [{question, options[4], correct, explanation}]}` |
 
 `citations` are `{file, page, snippet}`, deduped by file+page.
 
@@ -66,16 +74,26 @@ elsewhere, set `NEXT_PUBLIC_API_URL` in the Next app's `.env.local`.
 
 | Var | Default | Notes |
 |-----|---------|-------|
-| `OPENAI_API_KEY` | — | required for embedding + answering |
-| `OPENAI_CHAT_MODEL` | `gpt-4o-mini` | |
-| `OPENAI_EMBED_MODEL` | `text-embedding-3-small` | |
+| `XAI_API_KEY` | — | required for generation (ask/summary/quiz), not for indexing |
+| `XAI_BASE_URL` | `https://api.x.ai/v1` | xAI OpenAI-compatible endpoint |
+| `XAI_CHAT_MODEL` | `grok-4.3` | any current Grok model slug |
+| `EMBED_MODEL` | `BAAI/bge-small-en-v1.5` | local sentence-transformers model (no key) |
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | comma-separated |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `800` / `150` | tokens |
 | `TOP_K` | `5` | chunks retrieved per question |
 
 ## Scope
 
-This implements the plan's **MVP QA slice** (steps 1–8 + 12): upload → extract →
-chunk → embed → vector search → grounded answer with citations. Summaries
-(step 9) and quiz generation (step 10) are not wired yet — the `summary` and
-`quiz` pages still show placeholder UI.
+Implements plan.txt steps 1–10 + 12:
+
+- **Upload → extract → chunk → embed → store** (`loader`, `chunker`, `embeddings`, `vectorstore`)
+- **Grounded QA with citations** (`qa_chain`) — step 8 + 12
+- **Document summaries** (`summarizer`) — step 9; single-pass for short docs,
+  map-reduce for long ones, structured output (title / key points / concepts /
+  takeaways)
+- **Quiz generation** (`quiz_generator`) — step 10; MCQs by difficulty with
+  validated 4-option structure, correct index, and explanations
+
+Not yet done (plan steps 14, 16–17): cross-document global search beyond the
+optional `documentId` filter, polish (PDF/CSV export, chat history), and
+deployment config.

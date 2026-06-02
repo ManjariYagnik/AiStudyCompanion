@@ -1,12 +1,5 @@
-'use client'
+import { LandingHero } from '@/components/sections/landing-hero'
 
-import { AppLayout } from '@/components/layout/app-layout'
-import { Dashboard } from '@/components/sections/dashboard'
-
-export default function Page() {
-  return (
-    <AppLayout>
-      <Dashboard />
-    </AppLayout>
-  )
+export default function Home() {
+  return <LandingHero />
 }

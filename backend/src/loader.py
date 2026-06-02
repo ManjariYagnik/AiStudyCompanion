@@ -14,8 +14,33 @@ Page = Tuple[int, str]
 SUPPORTED_EXTENSIONS = {".pdf", ".txt", ".docx"}
 
 
+def _despace_line(line: str) -> str:
+    """Repair PDFs that extract with a space between almost every glyph
+    (e.g. 'D e cis i o n  f o r' -> 'Decision for').
+
+    Heuristic, applied per line only when the line is dominated by
+    single-character tokens. Real word breaks in these PDFs show up as 2+
+    spaces, so we treat double spaces as boundaries and drop single spaces
+    that sit between non-space characters.
+    """
+    tokens = line.split(" ")
+    non_empty = [t for t in tokens if t]
+    if len(non_empty) < 4:
+        return line
+    singles = sum(1 for t in non_empty if len(t) == 1)
+    if singles / len(non_empty) < 0.4:
+        return line  # looks like normal prose, leave it alone
+
+    boundary = ""
+    repaired = re.sub(r" {2,}", boundary, line)        # protect real word gaps
+    repaired = re.sub(r"(?<=\S) (?=\S)", "", repaired)  # drop intra-word spaces
+    return repaired.replace(boundary, " ")
+
+
 def _clean(text: str) -> str:
     """Normalise whitespace and drop empty lines without destroying structure."""
+    # Repair letter-spaced extraction line by line before collapsing whitespace.
+    text = "\n".join(_despace_line(line) for line in text.splitlines())
     # Collapse runs of spaces/tabs but keep newlines (paragraph/section breaks).
     text = re.sub(r"[ \t]+", " ", text)
     # Collapse 3+ blank lines down to a single blank line.
@@ -24,14 +49,16 @@ def _clean(text: str) -> str:
 
 
 def load_pdf(path: Path) -> List[Page]:
-    from pypdf import PdfReader
+    # pdfplumber with a tight x_tolerance merges kerning-induced spurious spaces
+    # (e.g. "f ollowing diagr am" -> "following diagram"), which pypdf leaves in.
+    import pdfplumber
 
-    reader = PdfReader(str(path))
     pages: List[Page] = []
-    for i, page in enumerate(reader.pages, start=1):
-        text = _clean(page.extract_text() or "")
-        if text:  # skip empty pages
-            pages.append((i, text))
+    with pdfplumber.open(str(path)) as pdf:
+        for i, page in enumerate(pdf.pages, start=1):
+            text = _clean(page.extract_text(x_tolerance=1) or "")
+            if text:  # skip empty pages
+                pages.append((i, text))
     return pages
 
 

@@ -30,7 +30,35 @@ export interface AskResponse {
 
 export interface HealthResponse {
   ok: boolean
-  openaiKeyConfigured: boolean
+  provider: string
+  model: string
+  xaiKeyConfigured: boolean
+}
+
+export interface KeyConcept {
+  term: string
+  definition: string
+}
+
+export interface DocumentSummary {
+  title: string
+  source: string
+  bulletPoints: string[]
+  keyConcepts: KeyConcept[]
+  importantTakeaways: string[]
+}
+
+export type Difficulty = 'easy' | 'medium' | 'hard'
+
+export interface QuizQuestion {
+  question: string
+  options: string[]
+  correct: number
+  explanation: string
+}
+
+export interface Quiz {
+  questions: QuizQuestion[]
 }
 
 async function parseError(res: Response): Promise<string> {
@@ -80,6 +108,30 @@ export async function askQuestion(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ question, documentId: documentId ?? null }),
+  })
+  if (!res.ok) throw new Error(await parseError(res))
+  return res.json()
+}
+
+export async function generateSummary(documentId: string): Promise<DocumentSummary> {
+  const res = await fetch(`${API_BASE}/api/summary`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ documentId }),
+  })
+  if (!res.ok) throw new Error(await parseError(res))
+  return res.json()
+}
+
+export async function generateQuiz(
+  documentId: string,
+  difficulty: Difficulty = 'medium',
+  count = 5,
+): Promise<Quiz> {
+  const res = await fetch(`${API_BASE}/api/quiz`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ documentId, difficulty, count }),
   })
   if (!res.ok) throw new Error(await parseError(res))
   return res.json()

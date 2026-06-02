@@ -56,3 +56,18 @@ def search(query: str, k: int, doc_id: Optional[str] = None) -> List[Tuple[objec
     store = get_store()
     where = {"doc_id": doc_id} if doc_id else None
     return store.similarity_search_with_score(query, k=k, filter=where)
+
+
+def get_document_chunks(doc_id: str) -> List[Tuple[int, str]]:
+    """Return all chunks for a document as (page, text), ordered by chunk index."""
+    store = get_store()
+    result = store.get(where={"doc_id": doc_id})
+    documents = result.get("documents") or []
+    metadatas = result.get("metadatas") or []
+
+    items = [
+        (meta.get("chunk_index", 0), meta.get("page", 1), text)
+        for text, meta in zip(documents, metadatas)
+    ]
+    items.sort(key=lambda x: x[0])
+    return [(page, text) for _idx, page, text in items]

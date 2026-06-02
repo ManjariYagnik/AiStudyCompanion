@@ -6,10 +6,10 @@ from that context -> return the answer plus deduped citations.
 """
 from __future__ import annotations
 
-from functools import lru_cache
 from typing import List, Optional, TypedDict
 
-from .config import CHAT_MODEL, TOP_K, require_api_key
+from .config import TOP_K
+from .llm import get_chat_llm
 from .vectorstore import search
 
 SYSTEM_PROMPT = (
@@ -32,13 +32,6 @@ class Citation(TypedDict):
 class Answer(TypedDict):
     answer: str
     citations: List[Citation]
-
-
-@lru_cache(maxsize=1)
-def _get_llm():
-    from langchain_openai import ChatOpenAI
-
-    return ChatOpenAI(model=CHAT_MODEL, temperature=0, api_key=require_api_key())
 
 
 def _format_context(docs) -> str:
@@ -67,7 +60,7 @@ def answer_question(question: str, doc_id: Optional[str] = None) -> Answer:
         )
 
     context = _format_context(docs)
-    llm = _get_llm()
+    llm = get_chat_llm()
     response = llm.invoke(
         [
             ("system", SYSTEM_PROMPT),
