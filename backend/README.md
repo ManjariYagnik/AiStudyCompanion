@@ -60,7 +60,10 @@ elsewhere, set `NEXT_PUBLIC_API_URL` in the Next app's `.env.local`.
 
 | Method | Path                  | Body                              | Returns |
 |--------|-----------------------|-----------------------------------|---------|
-| GET    | `/api/health`         | —                                 | `{ok, xaiKeyConfigured}` |
+| GET    | `/api/health`         | —                                 | `{ok, provider, model, xaiKeyConfigured}` |
+| POST   | `/api/auth/register`  | `{email, password, name?}`        | `{token, user}` |
+| POST   | `/api/auth/login`     | `{email, password}`               | `{token, user}` |
+| GET    | `/api/auth/me`        | (Bearer token)                    | `{id, email, name}` |
 | GET    | `/api/documents`      | —                                 | `StudyDocument[]` |
 | POST   | `/api/documents`      | multipart `file`                  | `StudyDocument` |
 | DELETE | `/api/documents/{id}` | —                                 | `{ok}` |
@@ -71,6 +74,10 @@ elsewhere, set `NEXT_PUBLIC_API_URL` in the Next app's `.env.local`.
 
 `citations` are `{file, page, snippet}`, deduped by file+page.
 
+All document/ask/summary/quiz endpoints require an `Authorization: Bearer <jwt>`
+header and are **scoped to the authenticated user** — each user only sees and
+queries their own documents.
+
 ## Config (env)
 
 | Var | Default | Notes |
@@ -79,6 +86,8 @@ elsewhere, set `NEXT_PUBLIC_API_URL` in the Next app's `.env.local`.
 | `XAI_BASE_URL` | `https://api.x.ai/v1` | xAI OpenAI-compatible endpoint |
 | `XAI_CHAT_MODEL` | `grok-4.3` | any current Grok model slug |
 | `EMBED_MODEL` | `BAAI/bge-small-en-v1.5` | local sentence-transformers model (no key) |
+| `JWT_SECRET` | `dev-insecure-change-me` | **set a long random value in production** (`openssl rand -hex 32`) |
+| `JWT_EXPIRE_DAYS` | `7` | session lifetime |
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | comma-separated |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `800` / `150` | tokens |
 | `TOP_K` | `5` | chunks retrieved per question |

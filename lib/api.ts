@@ -4,6 +4,69 @@
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ?? 'http://localhost:8000'
 
+// ---- Auth token (JWT) -------------------------------------------------------
+const TOKEN_KEY = 'sc_token'
+let _token: string | null = null
+
+export function getToken(): string | null {
+  if (_token) return _token
+  if (typeof window !== 'undefined') _token = localStorage.getItem(TOKEN_KEY)
+  return _token
+}
+
+export function setToken(token: string | null): void {
+  _token = token
+  if (typeof window === 'undefined') return
+  if (token) localStorage.setItem(TOKEN_KEY, token)
+  else localStorage.removeItem(TOKEN_KEY)
+}
+
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const t = getToken()
+  return t ? { ...extra, Authorization: `Bearer ${t}` } : extra
+}
+
+export interface AuthUser {
+  id: string
+  email: string
+  name?: string
+}
+
+export interface AuthResponse {
+  token: string
+  user: AuthUser
+}
+
+export async function register(
+  email: string,
+  password: string,
+  name?: string,
+): Promise<AuthResponse> {
+  const res = await fetch(`${API_BASE}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, name }),
+  })
+  if (!res.ok) throw new Error(await parseError(res))
+  return res.json()
+}
+
+export async function login(email: string, password: string): Promise<AuthResponse> {
+  const res = await fetch(`${API_BASE}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+  if (!res.ok) throw new Error(await parseError(res))
+  return res.json()
+}
+
+export async function getMe(): Promise<AuthUser> {
+  const res = await fetch(`${API_BASE}/api/auth/me`, { headers: authHeaders() })
+  if (!res.ok) throw new Error(await parseError(res))
+  return res.json()
+}
+
 export type DocumentStatus = 'processing' | 'indexed' | 'failed'
 
 export interface StudyDocument {
@@ -79,7 +142,10 @@ export async function getHealth(): Promise<HealthResponse> {
 }
 
 export async function listDocuments(): Promise<StudyDocument[]> {
-  const res = await fetch(`${API_BASE}/api/documents`, { cache: 'no-store' })
+  const res = await fetch(`${API_BASE}/api/documents`, {
+    cache: 'no-store',
+    headers: authHeaders(),
+  })
   if (!res.ok) throw new Error(await parseError(res))
   return res.json()
 }
@@ -89,6 +155,7 @@ export async function uploadDocument(file: File): Promise<StudyDocument> {
   form.append('file', file)
   const res = await fetch(`${API_BASE}/api/documents`, {
     method: 'POST',
+    headers: authHeaders(), // don't set Content-Type; the browser sets the multipart boundary
     body: form,
   })
   if (!res.ok) throw new Error(await parseError(res))
@@ -96,7 +163,10 @@ export async function uploadDocument(file: File): Promise<StudyDocument> {
 }
 
 export async function deleteDocument(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/documents/${id}`, { method: 'DELETE' })
+  const res = await fetch(`${API_BASE}/api/documents/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  })
   if (!res.ok) throw new Error(await parseError(res))
 }
 
@@ -106,7 +176,7 @@ export async function askQuestion(
 ): Promise<AskResponse> {
   const res = await fetch(`${API_BASE}/api/ask`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ question, documentId: documentId ?? null }),
   })
   if (!res.ok) throw new Error(await parseError(res))
@@ -116,7 +186,7 @@ export async function askQuestion(
 export async function generateSummary(documentId: string): Promise<DocumentSummary> {
   const res = await fetch(`${API_BASE}/api/summary`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ documentId }),
   })
   if (!res.ok) throw new Error(await parseError(res))
@@ -130,7 +200,7 @@ export async function generateQuiz(
 ): Promise<Quiz> {
   const res = await fetch(`${API_BASE}/api/quiz`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ documentId, difficulty, count }),
   })
   if (!res.ok) throw new Error(await parseError(res))
@@ -155,7 +225,7 @@ export async function askQuestionStream(
   try {
     res = await fetch(`${API_BASE}/api/ask/stream`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ question, documentId: documentId ?? null }),
     })
   } catch {
@@ -216,7 +286,7 @@ export async function generateSummaryStream(
   try {
     res = await fetch(`${API_BASE}/api/summary/stream`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ documentId }),
     })
   } catch {

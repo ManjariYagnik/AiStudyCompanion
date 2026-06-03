@@ -1,9 +1,11 @@
 import { Sidebar } from './sidebar'
 import { Header } from './header'
 import { FloatingActionButton } from './floating-action-button'
+import { RequireAuth } from '@/components/auth/require-auth'
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
+    <RequireAuth>
     <div className="app-backdrop flex h-screen overflow-hidden">
       {/* Sidebar */}
       <Sidebar />
@@ -22,5 +24,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Floating action button for mobile */}
       <FloatingActionButton />
     </div>
+    </RequireAuth>
   )
 }

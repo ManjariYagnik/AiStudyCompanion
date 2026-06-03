@@ -79,8 +79,10 @@ _NO_MATCH = (
 )
 
 
-def answer_question(question: str, doc_id: Optional[str] = None) -> Answer:
-    results = search(question, k=TOP_K, doc_id=doc_id)
+def answer_question(
+    question: str, doc_id: Optional[str] = None, user_id: Optional[str] = None
+) -> Answer:
+    results = search(question, k=TOP_K, doc_id=doc_id, user_id=user_id)
     docs = [doc for doc, _score in results]
 
     if not docs:
@@ -93,7 +95,7 @@ def answer_question(question: str, doc_id: Optional[str] = None) -> Answer:
 
 
 async def answer_question_stream(
-    question: str, doc_id: Optional[str] = None
+    question: str, doc_id: Optional[str] = None, user_id: Optional[str] = None
 ) -> AsyncIterator[dict]:
     """Yield SSE-style events: a 'sources' event (citations, available right
     after retrieval), then incremental 'token' events, then 'done'.
@@ -101,7 +103,7 @@ async def answer_question_stream(
     Retrieval is fast, so citations stream to the UI immediately while the
     (slower) model generates the answer token by token.
     """
-    results = search(question, k=TOP_K, doc_id=doc_id)
+    results = search(question, k=TOP_K, doc_id=doc_id, user_id=user_id)
     docs = [doc for doc, _score in results]
 
     yield {"type": "sources", "citations": _build_citations(docs)}

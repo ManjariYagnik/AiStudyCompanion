@@ -1,10 +1,18 @@
 'use client'
 
-import { Search, Bell, User } from 'lucide-react'
+import { Search, Bell, LogOut } from 'lucide-react'
 import { useState } from 'react'
+import { useAuth } from '@/lib/auth-context'
 
 export function Header() {
   const [searchQuery, setSearchQuery] = useState('')
+  const { user, logout } = useAuth()
+  const initials = (user?.name || user?.email || '?')
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((s) => s[0]?.toUpperCase())
+    .join('')
 
   return (
     <header className="hidden lg:flex fixed top-0 left-64 right-0 h-16 bg-[#080b14]/70 backdrop-blur-xl border-b border-white/8 items-center justify-between px-6 z-30">
@@ -34,11 +42,20 @@ export function Header() {
 
         <div className="w-px h-6 bg-white/10" />
 
-        <button className="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-full hover:bg-white/8 transition-colors text-white cursor-pointer">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-sm font-semibold text-white">
-            JD
+        <div className="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-full text-white">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-sm font-semibold text-[#010828]">
+            {initials}
           </div>
-          <span className="text-sm font-medium">John Doe</span>
+          <span className="text-sm font-medium max-w-[12rem] truncate">{user?.email}</span>
+        </div>
+
+        <button
+          onClick={logout}
+          aria-label="Sign out"
+          title="Sign out"
+          className="p-2.5 rounded-full text-white/60 hover:text-white hover:bg-white/8 transition-colors cursor-pointer"
+        >
+          <LogOut className="w-5 h-5" />
         </button>
       </div>
     </header>

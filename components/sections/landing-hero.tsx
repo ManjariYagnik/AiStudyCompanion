@@ -144,11 +144,11 @@ export function LandingHero() {
             </div>
 
             <div className="flex items-center gap-4">
-              <Link href="/dashboard" className="text-sm font-medium text-white">
+              <Link href="/register" className="text-sm font-medium text-white">
                 Sign Up
               </Link>
               <Link
-                href="/dashboard"
+                href="/login"
                 className="liquid-glass rounded-full px-6 py-2 text-sm font-medium text-white"
               >
                 Login
@@ -173,7 +173,7 @@ export function LandingHero() {
               className="liquid-glass flex items-center gap-3 rounded-full py-2 pl-6 pr-2"
               onSubmit={(e) => {
                 e.preventDefault()
-                router.push('/dashboard')
+                router.push('/register')
               }}
             >
               <input

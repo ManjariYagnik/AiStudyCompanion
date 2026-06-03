@@ -46,11 +46,17 @@ UPLOADS_DIR = BACKEND_DIR / "uploads"
 STORAGE_DIR = BACKEND_DIR / "storage"
 CHROMA_DIR = STORAGE_DIR / "chroma"
 REGISTRY_PATH = STORAGE_DIR / "registry.json"
+USERS_DB_PATH = STORAGE_DIR / "users.db"
 
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 CHROMA_DIR.mkdir(parents=True, exist_ok=True)
 
 COLLECTION_NAME = "study_companion"
+
+# Auth — JWT signing. Override JWT_SECRET in production (.env).
+JWT_SECRET = os.getenv("JWT_SECRET", "dev-insecure-change-me")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRE_DAYS = int(os.getenv("JWT_EXPIRE_DAYS", "7"))
 
 
 def require_xai_key() -> str:

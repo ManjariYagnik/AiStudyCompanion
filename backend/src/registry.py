@@ -67,5 +67,9 @@ def list_all() -> List[dict]:
     return docs
 
 
+def list_for_user(user_id: str) -> List[dict]:
+    return [d for d in list_all() if d.get("userId") == user_id]
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()

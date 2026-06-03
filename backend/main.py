@@ -10,14 +10,16 @@ Endpoints:
 from __future__ import annotations
 
 import json
+import re
 import uuid
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from src import registry
+from src import registry, users
+from src.auth import create_access_token, decode_token, hash_password, verify_password
 from src.chunker import chunk_pages
 from src.config import ALLOWED_ORIGINS, CHAT_MODEL, LLM_PROVIDER, UPLOADS_DIR, XAI_API_KEY
 from src.loader import SUPPORTED_EXTENSIONS, load_document
@@ -31,6 +33,70 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+users.init_db()
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: str | None = None
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+def get_current_user(authorization: str | None = Header(default=None)) -> dict:
+    """Resolve the user from a `Authorization: Bearer <jwt>` header."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    payload = decode_token(authorization.split(" ", 1)[1].strip())
+    if not payload or "sub" not in payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+    user = users.get_by_id(payload["sub"])
+    if not user:
+        raise HTTPException(status_code=401, detail="User no longer exists")
+    return user
+
+
+def _public_user(user: dict) -> dict:
+    return {"id": user["id"], "email": user["email"], "name": user.get("name")}
+
+
+@app.post("/api/auth/register")
+def register(req: RegisterRequest):
+    email = req.email.strip().lower()
+    if not _EMAIL_RE.match(email):
+        raise HTTPException(status_code=400, detail="Enter a valid email address.")
+    if len(req.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
+    if users.get_by_email(email):
+        raise HTTPException(status_code=409, detail="An account with this email already exists.")
+
+    user_id = uuid.uuid4().hex
+    name = (req.name or email.split("@")[0]).strip()
+    users.create_user(user_id, email, name, hash_password(req.password))
+    token = create_access_token(user_id, email)
+    return {"token": token, "user": {"id": user_id, "email": email, "name": name}}
+
+
+@app.post("/api/auth/login")
+def login(req: LoginRequest):
+    email = req.email.strip().lower()
+    user = users.get_by_email(email)
+    if not user or not verify_password(req.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Incorrect email or password.")
+    token = create_access_token(user["id"], user["email"])
+    return {"token": token, "user": _public_user(user)}
+
+
+@app.get("/api/auth/me")
+def me(user: dict = Depends(get_current_user)):
+    return _public_user(user)
 
 
 class AskRequest(BaseModel):
@@ -60,12 +126,14 @@ def health():
 
 
 @app.get("/api/documents")
-def list_documents():
-    return registry.list_all()
+def list_documents(user: dict = Depends(get_current_user)):
+    return registry.list_for_user(user["id"])
 
 
 @app.post("/api/documents")
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(
+    file: UploadFile = File(...), user: dict = Depends(get_current_user)
+):
     original_name = file.filename or "untitled"
     ext = "." + original_name.rsplit(".", 1)[-1].lower() if "." in original_name else ""
     if ext not in SUPPORTED_EXTENSIONS:
@@ -83,6 +151,7 @@ async def upload_document(file: UploadFile = File(...)):
     doc = registry.upsert(
         {
             "id": doc_id,
+            "userId": user["id"],
             "name": original_name,
             "size": human_size(len(contents)),
             "status": "processing",
@@ -101,7 +170,7 @@ async def upload_document(file: UploadFile = File(...)):
         # Importing here keeps non-LLM endpoints usable without an API key.
         from src.vectorstore import add_chunks
 
-        added = add_chunks(doc_id, original_name, chunks)
+        added = add_chunks(doc_id, original_name, chunks, user_id=user["id"])
         doc = registry.update(
             doc_id,
             status="indexed",
@@ -116,8 +185,9 @@ async def upload_document(file: UploadFile = File(...)):
 
 
 @app.delete("/api/documents/{doc_id}")
-def delete_document_endpoint(doc_id: str):
-    if not registry.get(doc_id):
+def delete_document_endpoint(doc_id: str, user: dict = Depends(get_current_user)):
+    doc = registry.get(doc_id)
+    if not doc or doc.get("userId") != user["id"]:
         raise HTTPException(status_code=404, detail="Document not found")
 
     # Remove vectors (best-effort; needs the key to construct the store).
@@ -133,7 +203,7 @@ def delete_document_endpoint(doc_id: str):
 
 
 @app.post("/api/ask")
-def ask(req: AskRequest):
+def ask(req: AskRequest, user: dict = Depends(get_current_user)):
     question = req.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="Question must not be empty.")
@@ -141,7 +211,7 @@ def ask(req: AskRequest):
     from src.qa_chain import answer_question
 
     try:
-        return answer_question(question, doc_id=req.documentId)
+        return answer_question(question, doc_id=req.documentId, user_id=user["id"])
     except RuntimeError as exc:  # missing API key
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:  # noqa: BLE001
@@ -149,7 +219,7 @@ def ask(req: AskRequest):
 
 
 @app.post("/api/ask/stream")
-async def ask_stream(req: AskRequest):
+async def ask_stream(req: AskRequest, user: dict = Depends(get_current_user)):
     question = req.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="Question must not be empty.")
@@ -158,7 +228,9 @@ async def ask_stream(req: AskRequest):
 
     async def event_source():
         try:
-            async for event in answer_question_stream(question, doc_id=req.documentId):
+            async for event in answer_question_stream(
+                question, doc_id=req.documentId, user_id=user["id"]
+            ):
                 yield f"data: {json.dumps(event)}\n\n"
         except RuntimeError as exc:  # missing API key / provider unreachable
             yield f"data: {json.dumps({'type': 'error', 'detail': str(exc)})}\n\n"
@@ -172,9 +244,9 @@ async def ask_stream(req: AskRequest):
     )
 
 
-def _require_doc(doc_id: str) -> dict:
+def _require_doc(doc_id: str, user: dict) -> dict:
     doc = registry.get(doc_id)
-    if not doc:
+    if not doc or doc.get("userId") != user["id"]:
         raise HTTPException(status_code=404, detail="Document not found")
     if doc.get("status") != "indexed":
         raise HTTPException(
@@ -184,8 +256,8 @@ def _require_doc(doc_id: str) -> dict:
 
 
 @app.post("/api/summary")
-def summary(req: SummaryRequest):
-    doc = _require_doc(req.documentId)
+def summary(req: SummaryRequest, user: dict = Depends(get_current_user)):
+    doc = _require_doc(req.documentId, user)
 
     from src.summarizer import summarize_document
 
@@ -204,8 +276,8 @@ def summary(req: SummaryRequest):
 
 
 @app.post("/api/summary/stream")
-async def summary_stream(req: SummaryRequest):
-    doc = _require_doc(req.documentId)
+async def summary_stream(req: SummaryRequest, user: dict = Depends(get_current_user)):
+    doc = _require_doc(req.documentId, user)
 
     from src.summarizer import summarize_document_stream
 
@@ -230,8 +302,8 @@ async def summary_stream(req: SummaryRequest):
 
 
 @app.post("/api/quiz")
-def quiz(req: QuizRequest):
-    _require_doc(req.documentId)
+def quiz(req: QuizRequest, user: dict = Depends(get_current_user)):
+    _require_doc(req.documentId, user)
 
     from src.quiz_generator import generate_quiz
 
