@@ -3,8 +3,18 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Brain, Loader2, AlertCircle } from 'lucide-react'
+import { Brain, Loader2, AlertCircle, Github } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
+import { getAuthProviders, oauthLoginUrl, type OAuthProvider } from '@/lib/api'
+
+// lucide has no Google glyph; inline the official multi-color mark.
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+      <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.24 1.4-1.7 4.1-5.5 4.1-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.9 2.9 14.7 2 12 2 6.9 2 2.8 6.1 2.8 11.2S6.9 20.4 12 20.4c5.9 0 9.8-4.1 9.8-9.9 0-.7-.1-1.2-.2-1.7H12z" />
+    </svg>
+  )
+}
 
 export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const { user, loading, login, register } = useAuth()
@@ -15,8 +25,18 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [providers, setProviders] = useState<Record<OAuthProvider, boolean>>({
+    google: false,
+    github: false,
+  })
 
   const isRegister = mode === 'register'
+
+  useEffect(() => {
+    getAuthProviders().then(setProviders)
+  }, [])
+
+  const hasOAuth = providers.google || providers.github
 
   // Already signed in → skip the form.
   useEffect(() => {
@@ -64,6 +84,34 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
             <div className="mb-4 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
               <span>{error}</span>
+            </div>
+          )}
+
+          {hasOAuth && (
+            <div className="mb-5 space-y-3">
+              {providers.google && (
+                <a
+                  href={oauthLoginUrl('google')}
+                  className="flex h-11 items-center justify-center gap-2.5 rounded-xl border border-white/12 bg-white/5 text-sm font-medium text-white hover:bg-white/10 transition-colors"
+                >
+                  <GoogleIcon />
+                  Continue with Google
+                </a>
+              )}
+              {providers.github && (
+                <a
+                  href={oauthLoginUrl('github')}
+                  className="flex h-11 items-center justify-center gap-2.5 rounded-xl border border-white/12 bg-white/5 text-sm font-medium text-white hover:bg-white/10 transition-colors"
+                >
+                  <Github className="h-4 w-4" />
+                  Continue with GitHub
+                </a>
+              )}
+              <div className="flex items-center gap-3 text-xs text-white/40">
+                <div className="h-px flex-1 bg-white/10" />
+                or
+                <div className="h-px flex-1 bg-white/10" />
+              </div>
             </div>
           )}
 

@@ -3,10 +3,15 @@ from __future__ import annotations
 
 import sqlite3
 import threading
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
 from .config import USERS_DB_PATH
+
+# Stored as the password hash for OAuth-only accounts; never matches a real
+# bcrypt hash, so password login for these users always fails.
+OAUTH_SENTINEL = "!oauth-no-password"
 
 _lock = threading.Lock()
 
@@ -52,3 +57,15 @@ def get_by_id(user_id: str) -> Optional[dict]:
     with _conn() as conn:
         row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
     return dict(row) if row else None
+
+
+def get_or_create_oauth_user(email: str, name: str) -> dict:
+    """Look up a user by email; create a password-less account if new.
+
+    This also links an OAuth sign-in to any existing email/password account
+    with the same email.
+    """
+    existing = get_by_email(email)
+    if existing:
+        return existing
+    return create_user(uuid.uuid4().hex, email, name, OAUTH_SENTINEL)

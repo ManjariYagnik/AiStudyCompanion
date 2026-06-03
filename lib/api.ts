@@ -67,6 +67,23 @@ export async function getMe(): Promise<AuthUser> {
   return res.json()
 }
 
+export type OAuthProvider = 'google' | 'github'
+
+export async function getAuthProviders(): Promise<Record<OAuthProvider, boolean>> {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/providers`)
+    if (!res.ok) return { google: false, github: false }
+    return res.json()
+  } catch {
+    return { google: false, github: false }
+  }
+}
+
+// Full-page redirect to the backend, which redirects on to the provider.
+export function oauthLoginUrl(provider: OAuthProvider): string {
+  return `${API_BASE}/api/auth/oauth/${provider}`
+}
+
 export type DocumentStatus = 'processing' | 'indexed' | 'failed'
 
 export interface StudyDocument {

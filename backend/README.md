@@ -92,6 +92,27 @@ queries their own documents.
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `800` / `150` | tokens |
 | `TOP_K` | `5` | chunks retrieved per question |
 
+## OAuth (optional — Google / GitHub)
+
+Email/password works out of the box. OAuth buttons appear on the login/register
+pages **only when a provider is configured**. To enable one:
+
+1. Create an OAuth app:
+   - **Google** → https://console.cloud.google.com/apis/credentials (OAuth client ID, type "Web application")
+   - **GitHub** → https://github.com/settings/developers (New OAuth App)
+2. Set the **Authorized redirect URI** to:
+   ```
+   http://localhost:8000/api/auth/oauth/google/callback
+   http://localhost:8000/api/auth/oauth/github/callback
+   ```
+   (use your real `OAUTH_REDIRECT_BASE` in production)
+3. Put the client id/secret in `backend/.env` (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, etc.) and restart.
+
+The flow: frontend → `GET /api/auth/oauth/{provider}` → provider → `…/callback`
+→ backend issues a JWT and redirects to `FRONTEND_URL/auth/callback?token=…`.
+OAuth users are matched/created by email (linking to an existing email/password
+account if one exists).
+
 ## Scope
 
 Implements plan.txt steps 1–10 + 12:

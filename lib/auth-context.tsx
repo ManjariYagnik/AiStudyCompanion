@@ -15,6 +15,7 @@ interface AuthContextValue {
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, name?: string) => Promise<void>
+  applyToken: (token: string) => Promise<void>
   logout: () => void
 }
 
@@ -48,13 +49,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.user)
   }
 
+  // Adopt a token obtained out-of-band (e.g. from the OAuth callback redirect).
+  const applyToken = async (token: string) => {
+    setToken(token)
+    const me = await getMe()
+    setUser(me)
+  }
+
   const logout = () => {
     setToken(null)
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, applyToken, logout }}>
       {children}
     </AuthContext.Provider>
   )

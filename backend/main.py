@@ -99,6 +99,54 @@ def me(user: dict = Depends(get_current_user)):
     return _public_user(user)
 
 
+@app.get("/api/auth/providers")
+def auth_providers():
+    """Which OAuth providers are configured (so the UI shows the right buttons)."""
+    from src import oauth
+
+    return oauth.enabled_providers()
+
+
+@app.get("/api/auth/oauth/{provider}")
+def oauth_login(provider: str):
+    from fastapi.responses import RedirectResponse
+
+    from src import oauth
+
+    if not oauth.is_enabled(provider):
+        raise HTTPException(status_code=404, detail="This sign-in method is not configured.")
+    return RedirectResponse(oauth.authorize_url(provider))
+
+
+@app.get("/api/auth/oauth/{provider}/callback")
+async def oauth_callback(provider: str, code: str = "", state: str = "", error: str = ""):
+    from urllib.parse import urlencode
+
+    from fastapi.responses import RedirectResponse
+
+    from src import oauth
+    from src.config import FRONTEND_URL
+
+    def back(params: dict) -> RedirectResponse:
+        return RedirectResponse(f"{FRONTEND_URL}/auth/callback?{urlencode(params)}")
+
+    if error or not code:
+        return back({"error": error or "Sign-in was cancelled."})
+    if not oauth.is_enabled(provider) or not oauth.verify_state(provider, state):
+        return back({"error": "Invalid or expired sign-in attempt."})
+
+    try:
+        profile = await oauth.exchange_code_for_profile(provider, code)
+    except Exception:  # noqa: BLE001
+        profile = None
+    if not profile:
+        return back({"error": "Could not sign you in with this provider."})
+
+    user = users.get_or_create_oauth_user(profile["email"], profile["name"])
+    token = create_access_token(user["id"], user["email"])
+    return back({"token": token})
+
+
 class AskRequest(BaseModel):
     question: str
     documentId: str | None = None

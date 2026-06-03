@@ -58,6 +58,18 @@ JWT_SECRET = os.getenv("JWT_SECRET", "dev-insecure-change-me")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_DAYS = int(os.getenv("JWT_EXPIRE_DAYS", "7"))
 
+# OAuth (Google / GitHub). Each provider activates only when its client
+# id+secret are set. Create apps in the provider consoles and register the
+# redirect URI: {OAUTH_REDIRECT_BASE}/api/auth/oauth/{provider}/callback
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
+# Where the provider redirects back (this backend), and where we send the user
+# afterwards (the Next.js app).
+OAUTH_REDIRECT_BASE = os.getenv("OAUTH_REDIRECT_BASE", "http://localhost:8000")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
 
 def require_xai_key() -> str:
     """Fail loudly with a helpful message when the xAI key is missing."""
