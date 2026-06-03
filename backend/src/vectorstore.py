@@ -24,7 +24,7 @@ def get_store():
     )
 
 
-def add_chunks(doc_id: str, file_name: str, chunks: List[Chunk]) -> int:
+def add_chunks(doc_id: str, file_name: str, chunks: List[Chunk], user_id: str = "") -> int:
     """Embed and persist all chunks for a document. Returns the count added."""
     from langchain_core.documents import Document
 
@@ -37,6 +37,7 @@ def add_chunks(doc_id: str, file_name: str, chunks: List[Chunk]) -> int:
                 "file": file_name,
                 "page": c.page,
                 "chunk_index": c.index,
+                "user_id": user_id,
             },
         )
         for c in chunks
@@ -51,10 +52,28 @@ def delete_document(doc_id: str) -> None:
     get_store().delete(where={"doc_id": doc_id})
 
 
-def search(query: str, k: int, doc_id: Optional[str] = None) -> List[Tuple[object, float]]:
-    """Return (Document, distance) pairs most relevant to the query."""
+def search(
+    query: str,
+    k: int,
+    doc_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> List[Tuple[object, float]]:
+    """Return (Document, distance) pairs most relevant to the query, scoped to
+    the user (and optionally a single document)."""
     store = get_store()
-    where = {"doc_id": doc_id} if doc_id else None
+    clauses = []
+    if user_id:
+        clauses.append({"user_id": user_id})
+    if doc_id:
+        clauses.append({"doc_id": doc_id})
+
+    if len(clauses) > 1:
+        where = {"$and": clauses}
+    elif clauses:
+        where = clauses[0]
+    else:
+        where = None
+
     return store.similarity_search_with_score(query, k=k, filter=where)
 
 

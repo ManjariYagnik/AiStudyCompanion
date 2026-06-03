@@ -40,20 +40,29 @@ class Quiz(BaseModel):
 
 _SYSTEM = (
     "You are a study assistant that writes quizzes. Generate questions ONLY from "
-    "the provided study material. Every question MUST have EXACTLY four options: "
-    "one clearly correct answer and three plausible distractors. Test "
-    "understanding rather than trivia. Do not reference 'the text' or 'the "
-    "passage' in questions."
+    "the provided study material. Strict rules:\n"
+    "- Every question has EXACTLY four options: one clearly correct answer and "
+    "three plausible but wrong distractors.\n"
+    "- NEVER use 'All of the above', 'None of the above', 'Both', or similar "
+    "meta-options. Every option must be a concrete, standalone answer.\n"
+    "- Exactly ONE option is correct; set 'correct' to its 0-based index.\n"
+    "- The 'explanation' MUST state and justify that exact correct option, and "
+    "must be consistent with the option you marked correct.\n"
+    "- Test understanding, not trivia. Don't reference 'the text' or 'the passage'."
 )
 
-_FILLERS = ["None of the above", "All of the above", "Not enough information"]
+# Meta-options the model must not use; if one is marked correct, the question is
+# unreliable (its explanation rarely matches), so we drop it.
+_META = ("all of the above", "none of the above", "both of the above", "all of these", "none of these")
 
 
 def _repair_question(q: QuizQuestion) -> QuizQuestion | None:
     """Coerce a model question into a clean 4-option item, or drop it."""
     options = [o.strip() for o in (q.options or []) if o and o.strip()]
-    if len(options) < 2 or not q.question.strip():
-        return None  # unsalvageable
+    # Need a real 4-option question; don't fabricate options (that caused
+    # explanation/answer mismatches). Drop anything that isn't clean.
+    if len(options) < 4 or not q.question.strip():
+        return None
 
     correct = q.correct if isinstance(q.correct, int) else 0
 
@@ -64,18 +73,18 @@ def _repair_question(q: QuizQuestion) -> QuizQuestion | None:
         kept = [o for i, o in enumerate(options) if i != correct][:3]
         options = [correct_opt, *kept]
         correct = 0
-    elif len(options) < 4:
-        # Pad with generic distractors (de-duplicated) up to 4.
-        for filler in _FILLERS:
-            if len(options) >= 4:
-                break
-            if filler not in options:
-                options.append(filler)
 
+    options = options[:4]
     correct = max(0, min(correct, len(options) - 1))
+
+    # Drop questions whose marked-correct answer is a meta-option — the model's
+    # explanation almost never matches these.
+    if options[correct].strip().lower().rstrip(".") in _META:
+        return None
+
     return QuizQuestion(
         question=q.question.strip(),
-        options=options[:4],
+        options=options,
         correct=correct,
         explanation=(q.explanation or "").strip(),
     )
@@ -98,16 +107,22 @@ def generate_quiz(doc_id: str, difficulty: str = "medium", count: int = 5) -> Qu
         "\n\n".join(text for _page, text in chunks), QUIZ_CONTEXT_TOKEN_BUDGET
     )
 
-    structured_llm = get_chat_llm(temperature=0.4).with_structured_output(
+    # Lower temperature keeps the marked answer consistent with the explanation.
+    structured_llm = get_chat_llm(temperature=0.2).with_structured_output(
         Quiz, method=STRUCTURED_OUTPUT_METHOD
     )
+    # Over-request a little so dropped (malformed/meta) questions don't leave
+    # the quiz short; _clean trims back down to `count`.
+    ask_for = min(count + 2, 12)
     messages = [
         ("system", _SYSTEM),
         (
             "human",
             f"Difficulty: {difficulty}. {DIFFICULTY_GUIDANCE[difficulty]}\n\n"
-            f"Generate exactly {count} multiple-choice questions, each with "
-            f"exactly 4 options, from this material:\n\n{context}",
+            f"Generate {ask_for} multiple-choice questions, each with exactly 4 "
+            f"concrete options (no 'all/none of the above'), from this material. "
+            f"Make sure each explanation matches the option you mark correct."
+            f"\n\n{context}",
         ),
     ]
 

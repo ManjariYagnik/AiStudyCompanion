@@ -8,8 +8,14 @@ import {
   type DocumentSummary,
   type StudyDocument,
   listDocuments,
-  generateSummary,
+  generateSummaryStream,
 } from '@/lib/api'
+
+const STAGE_LABEL: Record<string, string> = {
+  reading: 'Reading document…',
+  summarizing: 'Summarizing sections',
+  structuring: 'Structuring summary…',
+}
 
 export function SummarySection() {
   const [documents, setDocuments] = useState<StudyDocument[]>([])
@@ -17,6 +23,7 @@ export function SummarySection() {
   const [summary, setSummary] = useState<DocumentSummary | null>(null)
   const [loadingDocs, setLoadingDocs] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [stage, setStage] = useState<{ stage: string; detail?: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const indexed = documents.filter((d) => d.status === 'indexed')
@@ -37,14 +44,25 @@ export function SummarySection() {
     setError(null)
     setGenerating(true)
     setSummary(null)
-    try {
-      setSummary(await generateSummary(selectedId))
-    } catch (e: any) {
-      setError(e.message ?? 'Failed to generate summary')
-    } finally {
-      setGenerating(false)
-    }
+    setStage({ stage: 'reading' })
+    await generateSummaryStream(selectedId, {
+      onStage: (stage, detail) => setStage({ stage, detail }),
+      onResult: (s) => {
+        setSummary(s)
+        setGenerating(false)
+        setStage(null)
+      },
+      onError: (detail) => {
+        setError(detail)
+        setGenerating(false)
+        setStage(null)
+      },
+    })
   }
+
+  const stageText = stage
+    ? STAGE_LABEL[stage.stage] + (stage.detail ? ` ${stage.detail}` : '')
+    : ''
 
   return (
     <div className="space-y-8">
@@ -99,7 +117,7 @@ export function SummarySection() {
             {generating ? (
               <span className="inline-flex items-center gap-2">
                 <Loader2 className="size-4 animate-spin" />
-                Generating…
+                {stageText || 'Generating…'}
               </span>
             ) : (
               <span className="inline-flex items-center gap-2">
@@ -109,6 +127,31 @@ export function SummarySection() {
             )}
           </Button>
         </div>
+      )}
+
+      {/* Generating skeleton with stage feedback */}
+      {generating && !summary && (
+        <Card className="p-8 rounded-2xl glass animate-rise">
+          <div className="flex items-center gap-2 text-sm text-white/60 mb-6">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <span>{stageText || 'Working…'}</span>
+          </div>
+          <div className="h-6 w-2/3 rounded-lg bg-white/10 animate-pulse mb-6" />
+          <div className="space-y-2.5">
+            {[...Array(5)].map((_, i) => (
+              <div
+                key={i}
+                className="h-3 rounded-full bg-white/10 animate-pulse"
+                style={{ width: `${90 - i * 8}%` }}
+              />
+            ))}
+          </div>
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="h-20 rounded-xl bg-white/5 border border-white/8 animate-pulse" />
+            ))}
+          </div>
+        </Card>
       )}
 
       {/* Summary Card */}

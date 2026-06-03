@@ -4,13 +4,23 @@ import { useEffect, useRef, useState } from 'react'
 import { Send, MessageCircle, Lightbulb, ArrowRight, Loader2, FileText } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { type Citation, askQuestion } from '@/lib/api'
+import { type Citation, askQuestionStream } from '@/lib/api'
+
+type Stage = 'searching' | 'reading' | 'writing'
 
 interface Message {
   id: string
   type: 'question' | 'answer'
   text: string
   citations?: Citation[]
+  streaming?: boolean
+  stage?: Stage
+}
+
+const STAGE_LABEL: Record<Stage, string> = {
+  searching: 'Searching your notes…',
+  reading: 'Reading sources…',
+  writing: 'Writing answer…',
 }
 
 export function QASection() {
@@ -32,32 +42,40 @@ export function QASection() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, pending])
 
+  const patch = (id: string, fn: (m: Message) => Message) =>
+    setMessages((prev) => prev.map((m) => (m.id === id ? fn(m) : m)))
+
   const send = async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed || pending) return
     setError(null)
 
-    const userMsg: Message = { id: crypto.randomUUID(), type: 'question', text: trimmed }
-    setMessages((prev) => [...prev, userMsg])
+    // Optimistic: show the user's message and an answer placeholder instantly.
+    const userId = crypto.randomUUID()
+    const answerId = crypto.randomUUID()
+    setMessages((prev) => [
+      ...prev,
+      { id: userId, type: 'question', text: trimmed },
+      { id: answerId, type: 'answer', text: '', streaming: true, stage: 'searching' },
+    ])
     setQuestion('')
     setPending(true)
 
-    try {
-      const res = await askQuestion(trimmed)
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          type: 'answer',
-          text: res.answer,
-          citations: res.citations,
-        },
-      ])
-    } catch (e: any) {
-      setError(e.message ?? 'Something went wrong')
-    } finally {
-      setPending(false)
-    }
+    await askQuestionStream(trimmed, undefined, {
+      onSources: (citations) =>
+        patch(answerId, (m) => ({ ...m, citations, stage: 'reading' })),
+      onToken: (tok) =>
+        patch(answerId, (m) => ({ ...m, text: m.text + tok, stage: 'writing' })),
+      onDone: () => {
+        patch(answerId, (m) => ({ ...m, streaming: false }))
+        setPending(false)
+      },
+      onError: (detail) => {
+        setError(detail)
+        setMessages((prev) => prev.filter((m) => m.id !== answerId))
+        setPending(false)
+      },
+    })
   }
 
   return (
@@ -78,7 +96,7 @@ export function QASection() {
             ref={scrollRef}
             className="flex-1 p-6 rounded-2xl glass overflow-y-auto mb-4 space-y-4 animate-rise"
           >
-            {messages.length === 0 && !pending ? (
+            {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="w-16 h-16 rounded-2xl liquid-glass flex items-center justify-center mb-4">
                   <MessageCircle className="w-7 h-7 text-white/70" />
@@ -89,54 +107,67 @@ export function QASection() {
                 </p>
               </div>
             ) : (
-              <>
-                {messages.map((msg) => (
+              messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.type === 'question' ? 'justify-end' : 'justify-start'}`}
+                >
                   <div
-                    key={msg.id}
-                    className={`flex ${msg.type === 'question' ? 'justify-end' : 'justify-start'}`}
+                    className={`max-w-xs lg:max-w-md animate-rise ${
+                      msg.type === 'question'
+                        ? 'bg-primary/15 border border-primary/30 text-white rounded-2xl rounded-tr-md p-4'
+                        : 'glass text-white rounded-2xl rounded-tl-md p-4'
+                    }`}
                   >
-                    <div
-                      className={`max-w-xs lg:max-w-md animate-rise ${
-                        msg.type === 'question'
-                          ? 'bg-primary/15 border border-primary/30 text-white rounded-2xl rounded-tr-md p-4'
-                          : 'glass text-white rounded-2xl rounded-tl-md p-4'
-                      }`}
-                    >
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.text}</p>
-                      {msg.type === 'answer' && msg.citations && msg.citations.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
-                          <p className="text-xs font-medium text-white/50">Sources</p>
-                          {msg.citations.map((c, i) => (
-                            <div key={i} className="text-xs text-white/60">
-                              <div className="flex items-center gap-1.5 font-medium text-white/80">
-                                <FileText className="h-3 w-3 flex-shrink-0 text-primary" />
-                                <span>
-                                  {c.file} · p.{c.page}
-                                </span>
-                              </div>
-                              <p className="mt-0.5 italic text-white/55">“{c.snippet}”</p>
-                            </div>
-                          ))}
+                    {/* Stage feedback + skeleton while no text has streamed yet */}
+                    {msg.type === 'answer' && msg.streaming && !msg.text && (
+                      <div>
+                        <div className="flex items-center gap-2 text-xs text-white/60">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                          <span>{STAGE_LABEL[msg.stage ?? 'searching']}</span>
                         </div>
-                      )}
-                    </div>
+                        <div className="mt-3 space-y-2">
+                          <div className="h-2.5 w-3/4 rounded-full bg-white/10 animate-pulse" />
+                          <div className="h-2.5 w-full rounded-full bg-white/10 animate-pulse" />
+                          <div className="h-2.5 w-2/3 rounded-full bg-white/10 animate-pulse" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Progressive answer text (tokens appended as they arrive) */}
+                    {msg.text && (
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                        {msg.text}
+                        {msg.streaming && (
+                          <span className="ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 bg-primary/80 animate-pulse" />
+                        )}
+                      </p>
+                    )}
+
+                    {/* Citations — streamed in early, before the answer text */}
+                    {msg.type === 'answer' && msg.citations && msg.citations.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
+                        <p className="text-xs font-medium text-white/50">Sources</p>
+                        {msg.citations.map((c, i) => (
+                          <div key={i} className="text-xs text-white/60 animate-rise">
+                            <div className="flex items-center gap-1.5 font-medium text-white/80">
+                              <FileText className="h-3 w-3 flex-shrink-0 text-primary" />
+                              <span>
+                                {c.file} · p.{c.page}
+                              </span>
+                            </div>
+                            <p className="mt-0.5 italic text-white/55">“{c.snippet}”</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                ))}
-                {pending && (
-                  <div className="flex justify-start">
-                    <div className="glass text-white rounded-2xl rounded-tl-md p-4 flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                      <span className="text-sm text-white/60">Searching your notes…</span>
-                    </div>
-                  </div>
-                )}
-              </>
+                </div>
+              ))
             )}
           </Card>
 
-          {error && (
-            <p className="mb-2 text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="mb-2 text-sm text-destructive">{error}</p>}
 
           {/* Input */}
           <Card className="p-2 rounded-full glass flex items-center gap-2">
@@ -146,9 +177,8 @@ export function QASection() {
               onChange={(e) => setQuestion(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && send(question)}
               placeholder="Ask a question..."
-              disabled={pending}
               aria-label="Ask a question"
-              className="flex-1 bg-transparent rounded-full px-4 py-2 text-white placeholder:text-white/40 focus:outline-none disabled:opacity-60"
+              className="flex-1 bg-transparent rounded-full px-4 py-2 text-white placeholder:text-white/40 focus:outline-none"
             />
             <Button
               onClick={() => send(question)}

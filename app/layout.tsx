@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { AuthProvider } from '@/lib/auth-context'
 import './globals.css'
 
 // Load and actually apply the fonts (previously computed but never attached,
@@ -37,7 +38,7 @@ export default function RootLayout({
       <body className="font-sans antialiased bg-background">
         {/* Fixed filmic grain overlay (purely decorative) */}
         <div className="texture-overlay" aria-hidden="true" />
-        {children}
+        <AuthProvider>{children}</AuthProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
