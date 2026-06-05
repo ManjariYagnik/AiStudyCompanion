@@ -29,7 +29,7 @@ XAI_CHAT_MODEL = os.getenv("XAI_CHAT_MODEL", "grok-4.3")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 if ANTHROPIC_API_KEY in {"sk-ant-...", "sk-...", "xai-..."}:
     ANTHROPIC_API_KEY = ""
-ANTHROPIC_CHAT_MODEL = os.getenv("ANTHROPIC_CHAT_MODEL", "claude-opus-4-8")
+ANTHROPIC_CHAT_MODEL = os.getenv("ANTHROPIC_CHAT_MODEL", "claude-sonnet-4-6")
 ANTHROPIC_MAX_TOKENS = int(os.getenv("ANTHROPIC_MAX_TOKENS", "2048"))
 
 # The model name surfaced in health/UI for the active provider.

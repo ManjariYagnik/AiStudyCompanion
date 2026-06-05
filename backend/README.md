@@ -85,7 +85,7 @@ queries their own documents.
 |-----|---------|-------|
 | `LLM_PROVIDER` | `ollama` | `anthropic` \| `ollama` \| `xai` |
 | `ANTHROPIC_API_KEY` | — | required when provider=anthropic (`sk-ant-...`) |
-| `ANTHROPIC_CHAT_MODEL` | `claude-opus-4-8` | e.g. `claude-sonnet-4-6`, `claude-haiku-4-5` for lower cost |
+| `ANTHROPIC_CHAT_MODEL` | `claude-sonnet-4-6` | `claude-opus-4-8` (max quality) or `claude-haiku-4-5` (cheapest) |
 | `XAI_API_KEY` | — | required when provider=xai |
 | `XAI_CHAT_MODEL` | `grok-4.3` | any current Grok model slug |
 | `EMBED_MODEL` | `BAAI/bge-small-en-v1.5` | local sentence-transformers model (no key) |
