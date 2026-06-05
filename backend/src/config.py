@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BACKEND_DIR / ".env")
 
-# Generation provider: "ollama" (local, free, no key) or "xai" (Grok cloud API).
+# Generation provider: "anthropic" (Claude), "ollama" (local, free), or "xai" (Grok).
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").strip().lower()
 
 # Ollama (local LLM). Requires `ollama serve` running and the model pulled.
@@ -25,8 +25,20 @@ if XAI_API_KEY in {"xai-...", "sk-..."}:
 XAI_BASE_URL = os.getenv("XAI_BASE_URL", "https://api.x.ai/v1")
 XAI_CHAT_MODEL = os.getenv("XAI_CHAT_MODEL", "grok-4.3")
 
+# Anthropic Claude (Messages API), used only when LLM_PROVIDER=anthropic.
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
+if ANTHROPIC_API_KEY in {"sk-ant-...", "sk-...", "xai-..."}:
+    ANTHROPIC_API_KEY = ""
+ANTHROPIC_CHAT_MODEL = os.getenv("ANTHROPIC_CHAT_MODEL", "claude-opus-4-8")
+ANTHROPIC_MAX_TOKENS = int(os.getenv("ANTHROPIC_MAX_TOKENS", "2048"))
+
 # The model name surfaced in health/UI for the active provider.
-CHAT_MODEL = OLLAMA_MODEL if LLM_PROVIDER == "ollama" else XAI_CHAT_MODEL
+if LLM_PROVIDER == "ollama":
+    CHAT_MODEL = OLLAMA_MODEL
+elif LLM_PROVIDER == "anthropic":
+    CHAT_MODEL = ANTHROPIC_CHAT_MODEL
+else:
+    CHAT_MODEL = XAI_CHAT_MODEL
 
 # Local sentence-transformers model (downloaded on first use, no API key).
 EMBED_MODEL = os.getenv("EMBED_MODEL", "BAAI/bge-small-en-v1.5")
@@ -79,3 +91,13 @@ def require_xai_key() -> str:
             "and add your xAI (Grok) key. Get one at https://console.x.ai"
         )
     return XAI_API_KEY
+
+
+def require_anthropic_key() -> str:
+    """Fail loudly with a helpful message when the Anthropic key is missing."""
+    if not ANTHROPIC_API_KEY:
+        raise RuntimeError(
+            "ANTHROPIC_API_KEY is not set. Add your Anthropic API key (sk-ant-...) "
+            "to backend/.env. Create one at https://console.anthropic.com/settings/keys"
+        )
+    return ANTHROPIC_API_KEY
