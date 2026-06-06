@@ -1,18 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Moon, Sun, Bell, Lock, Trash2, HelpCircle } from 'lucide-react'
+import { Bell, Lock, Trash2, HelpCircle } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
 export function SettingsSection() {
-  const [isDarkMode, setIsDarkMode] = useState(true)
   const [notifications, setNotifications] = useState(true)
   const [emailUpdates, setEmailUpdates] = useState(false)
-
-  const handleToggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode)
-  }
 
   return (
     <div className="space-y-8">
@@ -21,37 +16,6 @@ export function SettingsSection() {
         <h1 className="text-4xl font-bold text-foreground mb-2">Settings</h1>
         <p className="text-lg text-muted-foreground">Manage your preferences and account</p>
       </div>
-
-      {/* Appearance Settings */}
-      <Card className="p-8 rounded-2xl border-0 bg-gradient-to-br from-card to-card/50">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center">
-            {isDarkMode ? <Moon className="w-5 h-5 text-primary" /> : <Sun className="w-5 h-5 text-primary" />}
-          </div>
-          <h2 className="text-xl font-bold text-foreground">Appearance</h2>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/10">
-            <div>
-              <p className="font-medium text-foreground">Dark Mode</p>
-              <p className="text-sm text-muted-foreground">Easy on the eyes during night study sessions</p>
-            </div>
-            <button
-              onClick={handleToggleDarkMode}
-              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
-                isDarkMode ? 'bg-primary' : 'bg-border'
-              }`}
-            >
-              <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                  isDarkMode ? 'translate-x-7' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-      </Card>
 
       {/* Notifications */}
       <Card className="p-8 rounded-2xl border-0 bg-gradient-to-br from-card to-card/50">
