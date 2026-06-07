@@ -2,8 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { Globe, ArrowRight, Instagram, Twitter, Brain } from 'lucide-react'
+import { ArrowRight, Brain } from 'lucide-react'
 
 const VIDEO_SRC =
   'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260328_115001_bcdaa3b4-03de-47e7-ad63-ae3e392c32d4.mp4'
@@ -13,7 +12,6 @@ const FADE_MS = 500
 const FADE_OUT_LEAD = 0.55
 
 export function LandingHero() {
-  const router = useRouter()
   const videoRef = useRef<HTMLVideoElement>(null)
   const rafRef = useRef<number | null>(null)
   // Guards against re-triggering the fade-out from repeated timeupdate events.
@@ -114,52 +112,30 @@ export function LandingHero() {
         {/* Navigation */}
         <nav className="relative z-20 py-6 pl-6 pr-6">
           <div className="mx-auto flex max-w-5xl items-center justify-between rounded-full px-6 py-3">
-            <div className="flex items-center gap-8">
-              <div className="flex items-center gap-2">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl liquid-glass">
-                  <Brain size={18} className="text-neon" />
-                </span>
-                <span className="font-display text-xl tracking-wide text-white">Study Companion</span>
-              </div>
-              <div className="hidden items-center gap-8 md:flex">
-                <a
-                  href="#features"
-                  className="text-sm font-medium text-white/80 transition-colors hover:text-neon"
-                >
-                  Features
-                </a>
-                <a
-                  href="#pricing"
-                  className="text-sm font-medium text-white/80 transition-colors hover:text-neon"
-                >
-                  Pricing
-                </a>
-                <a
-                  href="#about"
-                  className="text-sm font-medium text-white/80 transition-colors hover:text-neon"
-                >
-                  About
-                </a>
-              </div>
+            <div className="flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl liquid-glass">
+                <Brain size={18} className="text-neon" />
+              </span>
+              <span className="font-display text-xl tracking-wide text-white">Study Companion</span>
             </div>
 
             <div className="flex items-center gap-4">
-              <Link href="/register" className="text-sm font-medium text-white">
-                Sign Up
+              <Link href="/login" className="text-sm font-medium text-white/80 transition-colors hover:text-white">
+                Login
               </Link>
               <Link
-                href="/login"
+                href="/register"
                 className="liquid-glass rounded-full px-6 py-2 text-sm font-medium text-white"
               >
-                Login
+                Sign Up
               </Link>
             </div>
           </div>
         </nav>
 
         {/* Hero content */}
-        <main className="relative z-10 flex flex-1 -translate-y-[20%] flex-col items-center justify-center px-6 py-12 text-center">
-          <div className="relative mb-8">
+        <main className="relative z-10 flex flex-1 -translate-y-[18%] flex-col items-center justify-center px-6 py-12 text-center">
+          <div className="relative mb-6">
             <span className="font-condiment absolute -top-7 right-2 rotate-[-8deg] text-3xl text-neon mix-blend-screen select-none md:right-6 md:text-4xl">
               study smarter
             </span>
@@ -168,62 +144,27 @@ export function LandingHero() {
             </h1>
           </div>
 
-          <div className="w-full max-w-xl space-y-4">
-            <form
-              className="liquid-glass flex items-center gap-3 rounded-full py-2 pl-6 pr-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                router.push('/register')
-              }}
+          <p className="mb-8 max-w-xl text-base leading-relaxed text-white/70">
+            Upload your notes and let AI summarize them, answer your questions with
+            citations, and build quizzes — so you learn faster.
+          </p>
+
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/register"
+              className="inline-flex items-center gap-2 rounded-full bg-neon px-7 py-3 text-sm font-semibold text-[#010828] transition-transform hover:scale-[1.03]"
             >
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="flex-1 bg-transparent text-base text-white outline-none placeholder:text-white/40"
-              />
-              <button
-                type="submit"
-                aria-label="Submit email"
-                className="flex items-center justify-center rounded-full bg-neon p-3 text-[#010828] transition-transform hover:scale-105"
-              >
-                <ArrowRight size={20} />
-              </button>
-            </form>
-
-            <p className="px-4 text-sm leading-relaxed text-white">
-              Stay updated with the latest news and insights. Subscribe to our
-              newsletter today and never miss out on exciting updates.
-            </p>
-
-            <div className="flex justify-center">
-              <button className="liquid-glass rounded-full px-8 py-3 text-sm font-medium text-white transition-colors hover:bg-white/5">
-                Manifesto
-              </button>
-            </div>
+              Get Started
+              <ArrowRight size={18} />
+            </Link>
+            <Link
+              href="/login"
+              className="liquid-glass rounded-full px-7 py-3 text-sm font-medium text-white transition-colors hover:bg-white/5"
+            >
+              Sign In
+            </Link>
           </div>
         </main>
-
-        {/* Social footer */}
-        <footer className="relative z-10 flex justify-center gap-4 pb-12">
-          <button
-            aria-label="Instagram"
-            className="liquid-glass rounded-full p-4 text-white/80 transition-all hover:bg-white/5 hover:text-white"
-          >
-            <Instagram size={20} />
-          </button>
-          <button
-            aria-label="Twitter"
-            className="liquid-glass rounded-full p-4 text-white/80 transition-all hover:bg-white/5 hover:text-white"
-          >
-            <Twitter size={20} />
-          </button>
-          <button
-            aria-label="Website"
-            className="liquid-glass rounded-full p-4 text-white/80 transition-all hover:bg-white/5 hover:text-white"
-          >
-            <Globe size={20} />
-          </button>
-        </footer>
       </div>
     </div>
   )
