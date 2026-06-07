@@ -7,13 +7,14 @@ Upload file → Extract text → Chunk → Embed → Store in Chroma
             → Retrieve relevant chunks → Send to LLM → Grounded answer + citations
 ```
 
-**Stack:** FastAPI · LangChain · **Grok / xAI** (`grok-4.3`, OpenAI-compatible) for
-generation · **local HuggingFace embeddings** (`BAAI/bge-small-en-v1.5`, no key) ·
+**Stack:** FastAPI · LangChain · pluggable generation provider —
+**Anthropic Claude** (`claude-opus-4-8`), **Ollama** (local, free), or **Grok/xAI** —
+plus **local HuggingFace embeddings** (`BAAI/bge-small-en-v1.5`, no key) ·
 ChromaDB (persistent, on disk).
 
-> xAI has no embeddings endpoint, so embeddings run on-device via
-> sentence-transformers. Indexing/upload therefore needs **no API key**; only
-> generation (ask/summary/quiz) uses your `XAI_API_KEY`.
+> Embeddings always run on-device via sentence-transformers, so indexing/upload
+> needs **no API key**. Only generation (ask/summary/quiz) uses the active
+> provider's key. Switch providers with `LLM_PROVIDER` (`anthropic` | `ollama` | `xai`).
 
 ## Project structure
 
@@ -82,8 +83,10 @@ queries their own documents.
 
 | Var | Default | Notes |
 |-----|---------|-------|
-| `XAI_API_KEY` | — | required for generation (ask/summary/quiz), not for indexing |
-| `XAI_BASE_URL` | `https://api.x.ai/v1` | xAI OpenAI-compatible endpoint |
+| `LLM_PROVIDER` | `ollama` | `anthropic` \| `ollama` \| `xai` |
+| `ANTHROPIC_API_KEY` | — | required when provider=anthropic (`sk-ant-...`) |
+| `ANTHROPIC_CHAT_MODEL` | `claude-sonnet-4-6` | `claude-opus-4-8` (max quality) or `claude-haiku-4-5` (cheapest) |
+| `XAI_API_KEY` | — | required when provider=xai |
 | `XAI_CHAT_MODEL` | `grok-4.3` | any current Grok model slug |
 | `EMBED_MODEL` | `BAAI/bge-small-en-v1.5` | local sentence-transformers model (no key) |
 | `JWT_SECRET` | `dev-insecure-change-me` | **set a long random value in production** (`openssl rand -hex 32`) |

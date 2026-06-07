@@ -4,16 +4,19 @@ from __future__ import annotations
 from functools import lru_cache
 
 from .config import (
+    ANTHROPIC_CHAT_MODEL,
+    ANTHROPIC_MAX_TOKENS,
     LLM_PROVIDER,
     OLLAMA_BASE_URL,
     OLLAMA_MODEL,
     XAI_BASE_URL,
     XAI_CHAT_MODEL,
+    require_anthropic_key,
     require_xai_key,
 )
 
 # Structured output (summary/quiz) method per provider: Ollama uses native JSON
-# schema; xAI/Grok uses OpenAI-style function calling.
+# schema; Anthropic (Claude) and xAI/Grok use tool/function calling.
 STRUCTURED_OUTPUT_METHOD = "json_schema" if LLM_PROVIDER == "ollama" else "function_calling"
 
 
@@ -27,6 +30,19 @@ def get_chat_llm(temperature: float = 0.0):
             model=OLLAMA_MODEL,
             temperature=temperature,
             base_url=OLLAMA_BASE_URL,
+        )
+
+    if LLM_PROVIDER == "anthropic":
+        # Anthropic Claude via the Messages API.
+        from langchain_anthropic import ChatAnthropic
+
+        return ChatAnthropic(
+            model=ANTHROPIC_CHAT_MODEL,
+            temperature=temperature,
+            max_tokens=ANTHROPIC_MAX_TOKENS,
+            api_key=require_anthropic_key(),
+            timeout=60,
+            max_retries=2,
         )
 
     # xAI's Grok API is OpenAI-compatible, so we reuse ChatOpenAI with xAI's base URL.

@@ -17,6 +17,7 @@ export function QuizSection() {
   const [documents, setDocuments] = useState<StudyDocument[]>([])
   const [selectedId, setSelectedId] = useState<string>('')
   const [difficulty, setDifficulty] = useState<Difficulty>('medium')
+  const [count, setCount] = useState(5)
   const [loadingDocs, setLoadingDocs] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -46,7 +47,7 @@ export function QuizSection() {
     setError(null)
     setGenerating(true)
     try {
-      const quiz = await generateQuiz(selectedId, difficulty)
+      const quiz = await generateQuiz(selectedId, difficulty, count)
       if (!quiz.questions.length) throw new Error('No questions were generated.')
       setQuestions(quiz.questions)
       setCurrentQuestion(0)
@@ -160,6 +161,25 @@ export function QuizSection() {
                     {level === 'medium' && 'Connecting concepts'}
                     {level === 'hard' && 'Application and reasoning'}
                   </p>
+                </button>
+              ))}
+            </div>
+
+            <label className="mt-6 block text-sm font-medium text-white/55 mb-2">
+              Number of questions
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {[3, 5, 10].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setCount(n)}
+                  className={`h-11 min-w-[3.5rem] rounded-xl border px-4 font-medium transition-colors duration-200 cursor-pointer ${
+                    count === n
+                      ? 'border-primary/60 bg-primary/15 text-white'
+                      : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/8 hover:border-white/20'
+                  }`}
+                >
+                  {n}
                 </button>
               ))}
             </div>
