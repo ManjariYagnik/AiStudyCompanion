@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Brain, Loader2, AlertCircle, Github } from 'lucide-react'
+import { Brain, Loader2, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
-import { getAuthProviders, oauthLoginUrl, type OAuthProvider } from '@/lib/api'
+import { oauthLoginUrl } from '@/lib/api'
 
 // lucide has no Google glyph; inline the official multi-color mark.
 function GoogleIcon() {
@@ -25,18 +25,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [providers, setProviders] = useState<Record<OAuthProvider, boolean>>({
-    google: false,
-    github: false,
-  })
 
   const isRegister = mode === 'register'
-
-  useEffect(() => {
-    getAuthProviders().then(setProviders)
-  }, [])
-
-  const hasOAuth = providers.google || providers.github
 
   // Already signed in → skip the form.
   useEffect(() => {
@@ -87,33 +77,20 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
             </div>
           )}
 
-          {hasOAuth && (
-            <div className="mb-5 space-y-3">
-              {providers.google && (
-                <a
-                  href={oauthLoginUrl('google')}
-                  className="flex h-11 items-center justify-center gap-2.5 rounded-xl border border-white/12 bg-white/5 text-sm font-medium text-white hover:bg-white/10 transition-colors"
-                >
-                  <GoogleIcon />
-                  Continue with Google
-                </a>
-              )}
-              {providers.github && (
-                <a
-                  href={oauthLoginUrl('github')}
-                  className="flex h-11 items-center justify-center gap-2.5 rounded-xl border border-white/12 bg-white/5 text-sm font-medium text-white hover:bg-white/10 transition-colors"
-                >
-                  <Github className="h-4 w-4" />
-                  Continue with GitHub
-                </a>
-              )}
-              <div className="flex items-center gap-3 text-xs text-white/40">
-                <div className="h-px flex-1 bg-white/10" />
-                or
-                <div className="h-px flex-1 bg-white/10" />
-              </div>
+          <div className="mb-5 space-y-3">
+            <a
+              href={oauthLoginUrl('google')}
+              className="flex h-11 items-center justify-center gap-2.5 rounded-xl border border-white/12 bg-white/5 text-sm font-medium text-white hover:bg-white/10 transition-colors"
+            >
+              <GoogleIcon />
+              Continue with Google
+            </a>
+            <div className="flex items-center gap-3 text-xs text-white/40">
+              <div className="h-px flex-1 bg-white/10" />
+              or
+              <div className="h-px flex-1 bg-white/10" />
             </div>
-          )}
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {isRegister && (
