@@ -123,10 +123,27 @@ pages **only when a provider is configured**. To enable one:
    (use your real `OAUTH_REDIRECT_BASE` in production)
 3. Put the client id/secret in `backend/.env` (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, etc.) and restart.
 
+For a production deploy with **Google login only**, leave the GitHub variables
+empty and configure:
+
+```bash
+GOOGLE_CLIENT_ID=<google-oauth-client-id>
+GOOGLE_CLIENT_SECRET=<google-oauth-client-secret>
+OAUTH_REDIRECT_BASE=https://your-backend-domain.com
+FRONTEND_URL=https://your-frontend-domain.com
+ALLOWED_ORIGINS=https://your-frontend-domain.com
+```
+
+In Google Cloud Console, register this authorized redirect URI:
+
+```text
+https://your-backend-domain.com/api/auth/oauth/google/callback
+```
+
 The flow: frontend → `GET /api/auth/oauth/{provider}` → provider → `…/callback`
 → backend issues a JWT and redirects to `FRONTEND_URL/auth/callback?token=…`.
 OAuth users are matched/created by email (linking to an existing email/password
-account if one exists).
+account if one exists). Google accounts must have a verified email address.
 
 ## Scope
 

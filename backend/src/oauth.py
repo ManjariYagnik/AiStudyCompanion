@@ -120,6 +120,8 @@ async def exchange_code_for_profile(provider: str, code: str) -> Optional[OAuthP
 
         if provider == "google":
             email = info.get("email")
+            if info.get("email_verified") is not True:
+                return None
             name = info.get("name") or (email.split("@")[0] if email else "")
         else:  # github
             name = info.get("name") or info.get("login") or ""
