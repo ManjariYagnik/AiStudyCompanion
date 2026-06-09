@@ -1,0 +1,22 @@
+# Postgres + pgvector for the Study Companion backend.
+# Start with:  docker compose up -d   (from the backend/ folder)
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: studycompanion-pg
+    environment:
+      POSTGRES_USER: study
+      POSTGRES_PASSWORD: studypass
+      POSTGRES_DB: studycompanion
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U study -d studycompanion"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

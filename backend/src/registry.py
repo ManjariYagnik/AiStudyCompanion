@@ -1,74 +1,94 @@
-"""A tiny JSON-backed registry of uploaded documents.
+"""Document metadata, backed by the PostgreSQL `documents` table.
 
-Chroma holds the vectors; this holds the human-facing document list (name,
-size, status, timestamps) so the Documents page can render without scanning
-the vector store.
+Public functions keep the same shape as before (dicts with camelCase keys the
+frontend consumes), so callers don't change.
 """
 from __future__ import annotations
 
-import json
-import threading
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import List, Optional
 
-from .config import REGISTRY_PATH
+from .db import get_conn
 
-_lock = threading.Lock()
-
-
-def _read() -> Dict[str, dict]:
-    if not REGISTRY_PATH.exists():
-        return {}
-    try:
-        return json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return {}
+# Columns a caller may update via update(**fields).
+_UPDATABLE = {"name", "size", "status", "chunks", "pages", "error"}
 
 
-def _write(data: Dict[str, dict]) -> None:
-    REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    REGISTRY_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
+def _row_to_doc(row: Optional[dict]) -> Optional[dict]:
+    if not row:
+        return None
+    created = row.get("created_at")
+    return {
+        "id": row["id"],
+        "userId": row["user_id"],
+        "name": row["name"],
+        "size": row["size"],
+        "status": row["status"],
+        "chunks": row["chunks"],
+        "pages": row["pages"],
+        "error": row["error"],
+        "createdAt": created.isoformat() if hasattr(created, "isoformat") else created,
+    }
 
 
 def upsert(doc: dict) -> dict:
-    with _lock:
-        data = _read()
-        data[doc["id"]] = doc
-        _write(data)
-    return doc
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO documents (id, user_id, name, size, status, chunks, pages, error, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, COALESCE(%s, now()))
+            ON CONFLICT (id) DO UPDATE SET
+                name = EXCLUDED.name, size = EXCLUDED.size, status = EXCLUDED.status,
+                chunks = EXCLUDED.chunks, pages = EXCLUDED.pages, error = EXCLUDED.error
+            RETURNING *
+            """,
+            (
+                doc["id"], doc.get("userId"), doc["name"], doc.get("size"),
+                doc.get("status", "processing"), doc.get("chunks", 0),
+                doc.get("pages", 0), doc.get("error"), doc.get("createdAt"),
+            ),
+        )
+        return _row_to_doc(cur.fetchone())
 
 
 def update(doc_id: str, **fields) -> Optional[dict]:
-    with _lock:
-        data = _read()
-        if doc_id not in data:
-            return None
-        data[doc_id].update(fields)
-        _write(data)
-        return data[doc_id]
+    cols = {k: v for k, v in fields.items() if k in _UPDATABLE}
+    if not cols:
+        return get(doc_id)
+    assignments = ", ".join(f"{c} = %s" for c in cols)
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            f"UPDATE documents SET {assignments} WHERE id = %s RETURNING *",
+            (*cols.values(), doc_id),
+        )
+        return _row_to_doc(cur.fetchone())
 
 
 def remove(doc_id: str) -> bool:
-    with _lock:
-        data = _read()
-        existed = data.pop(doc_id, None) is not None
-        if existed:
-            _write(data)
-        return existed
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM documents WHERE id = %s", (doc_id,))
+        return cur.rowcount > 0
 
 
 def get(doc_id: str) -> Optional[dict]:
-    return _read().get(doc_id)
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute("SELECT * FROM documents WHERE id = %s", (doc_id,))
+        return _row_to_doc(cur.fetchone())
 
 
 def list_all() -> List[dict]:
-    docs = list(_read().values())
-    docs.sort(key=lambda d: d.get("createdAt", ""), reverse=True)
-    return docs
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute("SELECT * FROM documents ORDER BY created_at DESC")
+        return [_row_to_doc(r) for r in cur.fetchall()]
 
 
 def list_for_user(user_id: str) -> List[dict]:
-    return [d for d in list_all() if d.get("userId") == user_id]
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT * FROM documents WHERE user_id = %s ORDER BY created_at DESC",
+            (user_id,),
+        )
+        return [_row_to_doc(r) for r in cur.fetchall()]
 
 
 def now_iso() -> str:

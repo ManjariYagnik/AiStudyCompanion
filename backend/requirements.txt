@@ -21,10 +21,13 @@ langchain-ollama>=0.2,<0.4
 langchain-openai>=0.1.7,<0.3
 langchain-anthropic>=0.2,<0.4
 langchain-huggingface>=0.1,<0.3
-langchain-chroma>=0.1.2,<0.3
 langchain-community>=0.2,<0.4
-chromadb>=0.5,<0.6
 tiktoken>=0.7
+
+# PostgreSQL + pgvector (relational data AND embeddings in one DB)
+langchain-postgres>=0.0.12
+psycopg[binary]>=3.1
+SQLAlchemy>=2.0
 
 # Local embedding model (no API key, runs on-device)
 sentence-transformers>=3.0
