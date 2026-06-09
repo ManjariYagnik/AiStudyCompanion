@@ -1,7 +1,8 @@
-"""Persistent Chroma vector store wrapper.
+"""Vector store backed by PostgreSQL + pgvector (via langchain-postgres).
 
-Stores one Document per chunk with metadata {doc_id, file, page, chunk_index}
-so retrieved chunks can be cited back to their source file and page.
+Embeddings live in the same database as users/documents. Each chunk stores
+metadata {doc_id, file, page, chunk_index, user_id} so we can cite sources,
+scope retrieval per user, and fetch/delete a document's chunks.
 """
 from __future__ import annotations
 
@@ -9,18 +10,20 @@ from functools import lru_cache
 from typing import List, Optional, Tuple
 
 from .chunker import Chunk
-from .config import CHROMA_DIR, COLLECTION_NAME
+from .config import COLLECTION_NAME, DATABASE_URL
+from .db import get_conn
 from .embeddings import get_embeddings
 
 
 @lru_cache(maxsize=1)
 def get_store():
-    from langchain_chroma import Chroma
+    from langchain_postgres import PGVector
 
-    return Chroma(
+    return PGVector(
+        embeddings=get_embeddings(),
         collection_name=COLLECTION_NAME,
-        embedding_function=get_embeddings(),
-        persist_directory=str(CHROMA_DIR),
+        connection=DATABASE_URL,
+        use_jsonb=True,
     )
 
 
@@ -49,7 +52,16 @@ def add_chunks(doc_id: str, file_name: str, chunks: List[Chunk], user_id: str = 
 
 
 def delete_document(doc_id: str) -> None:
-    get_store().delete(where={"doc_id": doc_id})
+    # Delete straight from langchain-postgres's embedding table by metadata.
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "DELETE FROM langchain_pg_embedding WHERE cmetadata->>'doc_id' = %s",
+            (doc_id,),
+        )
+
+
+def _eq(key: str, value: str) -> dict:
+    return {key: {"$eq": value}}
 
 
 def search(
@@ -58,14 +70,14 @@ def search(
     doc_id: Optional[str] = None,
     user_id: Optional[str] = None,
 ) -> List[Tuple[object, float]]:
-    """Return (Document, distance) pairs most relevant to the query, scoped to
-    the user (and optionally a single document)."""
+    """Most-relevant (Document, distance) pairs, scoped to the user (and
+    optionally a single document)."""
     store = get_store()
     clauses = []
     if user_id:
-        clauses.append({"user_id": user_id})
+        clauses.append(_eq("user_id", user_id))
     if doc_id:
-        clauses.append({"doc_id": doc_id})
+        clauses.append(_eq("doc_id", doc_id))
 
     if len(clauses) > 1:
         where = {"$and": clauses}
@@ -78,15 +90,16 @@ def search(
 
 
 def get_document_chunks(doc_id: str) -> List[Tuple[int, str]]:
-    """Return all chunks for a document as (page, text), ordered by chunk index."""
-    store = get_store()
-    result = store.get(where={"doc_id": doc_id})
-    documents = result.get("documents") or []
-    metadatas = result.get("metadatas") or []
-
-    items = [
-        (meta.get("chunk_index", 0), meta.get("page", 1), text)
-        for text, meta in zip(documents, metadatas)
-    ]
-    items.sort(key=lambda x: x[0])
-    return [(page, text) for _idx, page, text in items]
+    """All chunks for a document as (page, text), ordered by chunk index."""
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT document, cmetadata
+            FROM langchain_pg_embedding
+            WHERE cmetadata->>'doc_id' = %s
+            ORDER BY (cmetadata->>'chunk_index')::int
+            """,
+            (doc_id,),
+        )
+        rows = cur.fetchall()
+    return [(int(r["cmetadata"].get("page", 1)), r["document"]) for r in rows]

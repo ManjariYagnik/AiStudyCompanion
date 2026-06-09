@@ -53,15 +53,18 @@ CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "800"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "150"))
 TOP_K = int(os.getenv("TOP_K", "5"))
 
-# On-disk locations (gitignored).
+# On-disk locations (gitignored). Uploads are still stored on disk; all
+# structured data + embeddings now live in PostgreSQL.
 UPLOADS_DIR = BACKEND_DIR / "uploads"
 STORAGE_DIR = BACKEND_DIR / "storage"
-CHROMA_DIR = STORAGE_DIR / "chroma"
-REGISTRY_PATH = STORAGE_DIR / "registry.json"
-USERS_DB_PATH = STORAGE_DIR / "users.db"
-
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-CHROMA_DIR.mkdir(parents=True, exist_ok=True)
+
+# PostgreSQL (relational data) + pgvector (embeddings). Use the SQLAlchemy-style
+# URL with the psycopg driver; langchain-postgres requires psycopg3.
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+psycopg://study:studypass@localhost:5432/studycompanion",
+)
 
 COLLECTION_NAME = "study_companion"
 

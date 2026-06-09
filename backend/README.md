@@ -10,7 +10,7 @@ Upload file → Extract text → Chunk → Embed → Store in Chroma
 **Stack:** FastAPI · LangChain · pluggable generation provider —
 **Anthropic Claude** (`claude-opus-4-8`), **Ollama** (local, free), or **Grok/xAI** —
 plus **local HuggingFace embeddings** (`BAAI/bge-small-en-v1.5`, no key) ·
-ChromaDB (persistent, on disk).
+**PostgreSQL + pgvector** (one database for users, documents, and embeddings).
 
 > Embeddings always run on-device via sentence-transformers, so indexing/upload
 > needs **no API key**. Only generation (ask/summary/quiz) uses the active
@@ -34,23 +34,34 @@ backend/
     └── utils.py
 ```
 
-`uploads/` (raw files) and `storage/` (Chroma index + `registry.json`) are created at
-runtime and gitignored.
+Uploaded raw files live in `uploads/` (gitignored). Everything else — users,
+document metadata, and embeddings — lives in **PostgreSQL + pgvector**.
 
 ## Setup
 
 ```bash
 cd backend
-/opt/homebrew/bin/python3.12 -m venv .venv      # any Python 3.9+ works
+
+# 1. Start PostgreSQL + pgvector (Docker; data persists in a named volume)
+docker compose up -d
+
+# 2. Python env + deps
+/opt/homebrew/bin/python3.12 -m venv .venv      # any Python 3.10+ works
 .venv/bin/python -m pip install -r requirements.txt
 
+# 3. Config
 cp .env.example .env
-# edit .env and set XAI_API_KEY=xai-...   (from https://console.x.ai)
+# edit .env: set ANTHROPIC_API_KEY=sk-ant-...  (DATABASE_URL already matches compose)
 ```
+
+The DB schema (tables + pgvector extension) is created automatically on first
+backend start. To use a hosted DB instead (Neon/Supabase/RDS), just point
+`DATABASE_URL` at it — no code changes.
 
 ## Run
 
 ```bash
+docker compose up -d                                   # if not already running
 .venv/bin/python -m uvicorn main:app --reload --port 8000
 ```
 
@@ -83,6 +94,7 @@ queries their own documents.
 
 | Var | Default | Notes |
 |-----|---------|-------|
+| `DATABASE_URL` | `postgresql+psycopg://study:studypass@localhost:5432/studycompanion` | Postgres (matches docker-compose) |
 | `LLM_PROVIDER` | `ollama` | `anthropic` \| `ollama` \| `xai` |
 | `ANTHROPIC_API_KEY` | — | required when provider=anthropic (`sk-ant-...`) |
 | `ANTHROPIC_CHAT_MODEL` | `claude-sonnet-4-6` | `claude-opus-4-8` (max quality) or `claude-haiku-4-5` (cheapest) |
